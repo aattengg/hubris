@@ -30,10 +30,10 @@ Adafruit_MotorShield AFMSbot(0x61); // Rightmost jumper closed
 Adafruit_MotorShield AFMStop(0x60); // Default address, no jumpers
 
 // Define Motors
-Adafruit_StepperMotor *myStepperFR = AFMStop.getStepper(200, 1);  //Front Right
-Adafruit_StepperMotor *myStepperBR= AFMStop.getStepper(200, 2);   // Bottom Right
-Adafruit_StepperMotor *myStepperFL = AFMSbot.getStepper(200, 1);  //Front Left
-Adafruit_StepperMotor *myStepperBL = AFMSbot.getStepper(200, 2);  //Bottom Left
+Adafruit_StepperMotor *myStepperFR = AFMSbot.getStepper(200, 1);  //Front Right
+Adafruit_StepperMotor *myStepperBR= AFMSbot.getStepper(200, 2);   // Bottom Right
+Adafruit_StepperMotor *myStepperFL = AFMStop.getStepper(200, 1);  //Front Left
+Adafruit_StepperMotor *myStepperBL = AFMStop.getStepper(200, 2);  //Bottom Left
 
 
 void setup() {
@@ -41,7 +41,7 @@ void setup() {
   Serial.begin(9600);   // set up Serial library at 9600 bps
   AFMSbot.begin();      // Start the bottom shield
   AFMStop.begin();      // Start the top shield
-  TWBR = ((F_CPU /200000l) - 16) / 2; // Change the i2c clock to 200KHz so motor can run faster (400KHz is fastest it can go)
+  TWBR = ((F_CPU /400000l) - 16) / 2; // Change the i2c clock to 200KHz so motor can run faster (400KHz is fastest it can go)
 }
 
 int i;
