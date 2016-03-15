@@ -114,3 +114,31 @@ void asyncGoBack(int steps, int delayMs){
   }
 }
 
+// Incremental movement functions.
+void incrementForward() {
+    myStepperFL->onestep(BACKWARD, DOUBLE);
+    myStepperFR->onestep(FORWARD, DOUBLE);
+    myStepperBL->onestep(BACKWARD, DOUBLE);
+    myStepperBR->onestep(FORWARD, DOUBLE);
+}
+    
+void incrementBackward() {
+    myStepperFL->onestep(FORWARD, DOUBLE);
+    myStepperFR->onestep(BACKWARD, DOUBLE);
+    myStepperBL->onestep(FORWARD, DOUBLE);
+    myStepperBR->onestep(BACKWARD, DOUBLE);
+}
+
+void incrementRotateLeft() {
+    myStepperFL->onestep(FORWARD, DOUBLE);
+    myStepperFR->onestep(FORWARD, DOUBLE);
+    myStepperBL->onestep(FORWARD, DOUBLE);
+    myStepperBR->onestep(FORWARD, DOUBLE);
+}
+    
+void incrementRotateRight() {
+    myStepperFL->onestep(BACKWARD, DOUBLE);
+    myStepperFR->onestep(BACKWARD, DOUBLE);
+    myStepperBL->onestep(BACKWARD, DOUBLE);
+    myStepperBR->onestep(BACKWARD, DOUBLE);
+}
