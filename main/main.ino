@@ -179,3 +179,44 @@ void incrementRotateRight() {
     myStepperBL->onestep(BACKWARD, DOUBLE);
     myStepperBR->onestep(BACKWARD, DOUBLE);
 }
+
+// Data processing functions.
+unsigned long median3Filter(unsigned long a, unsigned long b, unsigned long c) {
+    if (a >= b)
+    {
+      if (a <= c)
+      {
+        return a; // b <= a <= c
+      }
+      else  // a >= b; a > c
+      {
+        if (b >= c)
+        {
+          return b; // c <= b <= a
+        }
+        else
+        {
+          return c; // b < c < a
+        }
+      }
+    }
+    else
+    {
+      if (a >= c)
+      {
+        return a; // c <= a < b
+      }
+      else  // a < b; a < c
+      {
+        if (b <= c)
+        {
+          return b; // a < b <= c
+        }
+        else
+        {
+          return c; // a < c < b
+        }
+      }
+    }
+}
+
