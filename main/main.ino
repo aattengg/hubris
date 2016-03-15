@@ -1,29 +1,29 @@
-/* 
-********************************************** 
+/*
+**********************************************
         Anthony Sensor Wiring Pinout
 **********************************************
 
 ************* Ultrasonic Sensors *************
 * All pins are Digital I/O for Ultrasonic
-* 
+*
 * Front Face Left (Echo = 38 Trig = 39)
 * Front Face Right (Echo = 40 Trig = 41)
 * Left Face Front Left (Echo = 24 Trig = 25)
 * Left Face Bottom Left (Echo = 22 Trig = 23)
 * Right Face Front Right (Echo = 50 Trig = 51)
 * Right Face Bottom Right (Echo = 52 Trig = 53)
-* 
+*
 *************   MPU 6050 Wiring  *************
 * SCL = Digital I/O (Communication) Pin 21
 * SDA = Digital I/O (Communication) Pin 20
 * INT = Digital I/O (PWM)           Pin 2
-* 
+*
 * ********************************************
 */
 
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
-#include "utility/Adafruit_MS_PWMServoDriver.h"
+#include <utility/Adafruit_MS_PWMServoDriver.h>
 
 // Define Address for the Two Motor Sheilds
 Adafruit_MotorShield AFMSbot(0x61); // Rightmost jumper closed
@@ -76,7 +76,7 @@ void asyncGoForward(int steps, int delayMs){
         myStepperBR->onestep(FORWARD, DOUBLE);
         i++;
         delay(delayMs);
-    }    
+    }
 }
 
 void asyncGoLeft(int steps, int delayMs){
@@ -100,7 +100,7 @@ void asyncGoRight(int steps, int delayMs){
     myStepperBR->onestep(BACKWARD, DOUBLE);
     delay(delayMs);
   }
-  
+
 }
 
 void asyncGoBack(int steps, int delayMs){
