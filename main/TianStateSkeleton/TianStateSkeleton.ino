@@ -2,11 +2,13 @@
 
 //how many states are we cycling through?
 const byte NUMBER_OF_SELECTABLE_STATES = 10;
+const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 15;
+const float PITCH_TOLERANCE = 80;
 
 /** this is the definitions of the states that our program uses */
-State driveToWall = State(driveToWall);  //first state where we drive To the wall
+State driveToWall = State(driveToWallUpdate);  //first state where we drive To the wall
 State adjustToRamp = State(adjustToRamp);  //state where robot turns to face the ramp
-State driveToRamp = State(driveToRamp);  //keeps itself aligned to the ramp as it drives closer
+State driveToRamp = State(driveToRampUpdate);  //keeps itself aligned to the ramp as it drives closer
 State getOnRamp = State(getOnRamp); //get the wheels onto the ramp itself via alignment corrections
 State goUpRamp = State(goUpRamp); //pretty much just driving straight lol
 State readjustOnRamp = State(readjustOnRamp); //comes here when we slip off ramp
@@ -31,7 +33,7 @@ void loop(){
     manipulate the state machine
   */
   //CONTROL THE STATE
-    switch (buttonPresses){
+    switch (currentState){
       case 0: stateMachine.transitionTo(driveToWall); break;
       case 1: stateMachine.transitionTo(adjustToRamp); break;
       case 2: stateMachine.transitionTo(driveToRamp); break;
@@ -54,5 +56,48 @@ void loop(){
 */
 ///[example state:update] this state does whateva
 void example() {
-  //just chillin
+  //just chillinDude
+}
+
+void driveToWallUpdate() {
+    if (frontSensorsNewData) {
+        updateSonar(&uSFront);
+    }
+    if (rightSensorsNewData) {
+        updateSonar(&uSRight);
+    }
+    if (frontDistance > DRIVE_TO_WALL_DESIRED_DISTANCE) {
+        incrementForward();
+    }
+    else {
+        // Trigger state transition. Use a proper enum for this when time permits.
+        currentState = 1;
+    }
+}
+
+void adjustToRampUpdate() {
+    if (rightSensorNewData) {
+        updateSonar(&uSRight);
+    }
+    if (uSRight.angleFiltered < 80 || uSRight.angleFiltered > 100) {
+        incrementRotateLeft();
+    }
+    else {
+        // Trigger state transition. Use a proper enum for this when time permits.
+        currentState = 2;
+    }
+}
+
+void driveToRampUpdate() {
+    if (rightSensorsNewData) {
+        updateSonar(&uSRight);
+    }
+    getYPR();
+    if (pitch > PITCH_TOLERANCE) {
+        incrementForward();
+    }
+    else {
+        // Trigger state transition. Use a proper enum for this when time permits.
+        currentState = 3;
+    }
 }
