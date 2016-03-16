@@ -260,29 +260,6 @@ void echoCheck(){
         curUS->curDist = curUS->us.ping_result / float(US_ROUNDTRIP_CM);
 }
 
-/*
-void updateSonar(USPair_t* USPair) {
-    USPair->US1Current = USPair->us1->ping();
-    USPair->US2Current = USPair->us2->ping();
-
-    USPair->US1Filtered = median3Filter(USPair->US1Current, USPair->US1Buffer1, USPair->US1Buffer2);
-    USPair->US2Filtered = median3Filter(USPair->US2Current, USPair->US2Buffer1, USPair->US2Buffer2);
-
-    USPair->US1Buffer2 = USPair->US1Buffer1;
-    USPair->US1Buffer1 = USPair->US1Current;
-    USPair->US2Buffer2 = USPair->US2Buffer1;
-    USPair->US2Buffer1 = USPair->US2Current;
-
-    USPair->angleCurrent = (int)(180 / 3.14 * asin(int(USPair->US1Filtered - USPair->US2Filtered) / (US_ROUNDTRIP_CM * USPair->USSepDist)));
-    USPair->distance = (USPair->US1Filtered + USPair->US2Filtered)/(US_ROUNDTRIP_CM * 2.0) + USPair->distToCenter * cos(USPair->angleCurrent) + 0.5;
-
-    USPair->angle = median3Filter(USPair->angleCurrent, USPair->angleBuffer1, USPair->angleBuffer2);
-
-    USPair->angleBuffer2 = USPair->angleBuffer1;
-    USPair->angleBuffer1 = USPair->angleCurrent;
-}
-*/
-
 void updateSonar(USPair_t *USPair) {
     Ultrasonic *us0 = USPair->us[0];
     Ultrasonic *us1 = USPair->us[1];
@@ -308,6 +285,12 @@ void printSonarData(USPair_t *USPair) {
 
     Ultrasonic *us0 = USPair->us[0];
     Ultrasonic *us1 = USPair->us[1];
+
+    Serial.print("Angle: ");
+    Serial.println(USPair->angle * 180 / 3.1415, 4);
+    Serial.print("Distance: ");
+    Serial.print(USPair->distance, 4);
+    Serial.println("cm");
     /*
     Serial.println("Anthony Debugs:");
     Serial.println(us0->filteredDist - us1->filteredDist);
@@ -316,15 +299,6 @@ void printSonarData(USPair_t *USPair) {
     Serial.println(USPair->usSepDist, 4);
     Serial.println(USPair->angleCurrent, 4);
     Serial.println(cos(USPair->angleCurrent), 4);
-    */
-
-
-    Serial.print("Angle: ");
-    Serial.println(USPair->angle * 180 / 3.1415, 4);
-    Serial.print("Distance: ");
-    Serial.print(USPair->distance, 4);
-    Serial.println("cm");
-    /*
     Serial.print("US1: ");
     Serial.println(USPair->us[0]->curDist, 4);
     Serial.print("US2: ");
