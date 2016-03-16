@@ -21,9 +21,43 @@
 * ********************************************
 */
 
-#include <Wire.h>
 #include <Adafruit_MotorShield.h>
-#include <utility/Adafruit_MS_PWMServoDriver.h>
+#include <NewPing.h>
+#include <Wire.h>
+
+/****************************************
+ * Ultrasonic Sensors Pin Configuration *
+ ****************************************/
+#define US_MAX_DIST 200
+
+/* Distances in cm */
+#define US_FRONT_SEP
+#define US_FRONT_DIST_TO_CENTER
+
+/* Front Left Sensor */
+#define US_ECHO_FL      38
+#define US_TRIGGER_FL   39
+
+/* Front Right Sensor */
+#define US_ECHO_FR      40
+#define US_TRIGGER_FR   41
+
+/* Left Front Sensor */
+#define US_ECHO_LF      24
+#define US_TRIGGER_LF   25
+
+/* Left Back Sensor */
+#define US_ECHO_LB      22
+#define US_TRIGGER_LB   23
+
+/* Right Front Sensor */
+#define US_ECHO_RF      50
+#define US_TRIGGER_RF   51
+
+/* Right Back Sensor */
+#define US_ECHO_RB      52
+#define US_TRIGGER_RB   53
+
 
 // Define Address for the Two Motor Sheilds
 Adafruit_MotorShield AFMSbot(0x61); // Rightmost jumper closed
@@ -35,6 +69,13 @@ Adafruit_StepperMotor *myStepperBR= AFMStop.getStepper(200, 2);   // Bottom Righ
 Adafruit_StepperMotor *myStepperFL = AFMSbot.getStepper(200, 1);  //Front Left
 Adafruit_StepperMotor *myStepperBL = AFMSbot.getStepper(200, 2);  //Bottom Left
 
+// Define sonars from the ultrasonic sensors
+NewPing sonarFL(US_TRIGGER_FL, US_ECHO_FL, US_MAX_DIST);
+NewPing sonarFR(US_TRIGGER_FR, US_ECHO_FR, US_MAX_DIST);
+NewPing sonarLF(US_TRIGGER_LF, US_ECHO_LF, US_MAX_DIST);
+NewPing sonarLB(US_TRIGGER_LB, US_ECHO_LB, US_MAX_DIST);
+NewPing sonarRF(US_TRIGGER_RF, US_ECHO_RF, US_MAX_DIST);
+NewPing sonarRB(US_TRIGGER_RB, US_ECHO_RB, US_MAX_DIST);
 
 void setup() {
   while (!Serial);
@@ -46,25 +87,21 @@ void setup() {
 
 int i;
 void loop() {
-    /*
-    delay(500);
-    asyncGoForward(162,0);
-    delay(100);
-    asyncGoLeft(162,0);
-    delay(100);
-    asyncGoForward(162,0);
-    delay(100);
-    asyncGoLeft(162,0);
-    delay(100);
-    asyncGoForward(162,0);
-    delay(100);
-    asyncGoLeft(162,0);
-    delay(100);
-    asyncGoForward(162,0);
-    delay(100);
-    asyncGoLeft(162,0);
-    delay(100);*/
-    asyncGoForward(162,0);
+/*
+    int uS1 = sonar1.ping();
+    int uS2 = sonar2.ping();
+
+    float angle = asin((uS1 - uS2) / (US_ROUNDTRIP_CM * 15.0));
+    int distance = (uS1 + uS2)/(US_ROUNDTRIP_CM * 2.0) + 5/2.0 * sin(angle) + 0.5;
+
+    Serial.print("Angle: ");
+    Serial.println(180 / 3.14 * angle);
+
+    Serial.print("Distance: ");
+    Serial.print(distance);
+    Serial.println("cm");
+*/
+    incrementForward();
 }
 
 void asyncGoForward(int steps, int delayMs){
@@ -112,5 +149,74 @@ void asyncGoBack(int steps, int delayMs){
     myStepperBR->onestep(BACKWARD, DOUBLE);
     delay(delayMs);
   }
+}
+
+// Incremental movement functions.
+void incrementForward() {
+    myStepperFL->onestep(BACKWARD, DOUBLE);
+    myStepperFR->onestep(FORWARD, DOUBLE);
+    myStepperBL->onestep(BACKWARD, DOUBLE);
+    myStepperBR->onestep(FORWARD, DOUBLE);
+}
+
+void incrementBackward() {
+    myStepperFL->onestep(FORWARD, DOUBLE);
+    myStepperFR->onestep(BACKWARD, DOUBLE);
+    myStepperBL->onestep(FORWARD, DOUBLE);
+    myStepperBR->onestep(BACKWARD, DOUBLE);
+}
+
+void incrementRotateLeft() {
+    myStepperFL->onestep(FORWARD, DOUBLE);
+    myStepperFR->onestep(FORWARD, DOUBLE);
+    myStepperBL->onestep(FORWARD, DOUBLE);
+    myStepperBR->onestep(FORWARD, DOUBLE);
+}
+
+void incrementRotateRight() {
+    myStepperFL->onestep(BACKWARD, DOUBLE);
+    myStepperFR->onestep(BACKWARD, DOUBLE);
+    myStepperBL->onestep(BACKWARD, DOUBLE);
+    myStepperBR->onestep(BACKWARD, DOUBLE);
+}
+
+// Data processing functions.
+unsigned long median3Filter(unsigned long a, unsigned long b, unsigned long c) {
+    if (a >= b)
+    {
+      if (a <= c)
+      {
+        return a; // b <= a <= c
+      }
+      else  // a >= b; a > c
+      {
+        if (b >= c)
+        {
+          return b; // c <= b <= a
+        }
+        else
+        {
+          return c; // b < c < a
+        }
+      }
+    }
+    else
+    {
+      if (a >= c)
+      {
+        return a; // c <= a < b
+      }
+      else  // a < b; a < c
+      {
+        if (b <= c)
+        {
+          return b; // a < b <= c
+        }
+        else
+        {
+          return c; // a < c < b
+        }
+      }
+    }
 }
 
