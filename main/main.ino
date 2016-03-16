@@ -151,53 +151,6 @@ void loop() {
       incrementForward();
 }
 
-void asyncGoForward(int steps, int delayMs){
-    i = 0;
-    while(i < steps){
-        myStepperFL->onestep(BACKWARD, DOUBLE);
-        myStepperFR->onestep(FORWARD, DOUBLE);
-        myStepperBL->onestep(BACKWARD, DOUBLE);
-        myStepperBR->onestep(FORWARD, DOUBLE);
-        i++;
-        delay(delayMs);
-    }
-}
-
-void asyncGoLeft(int steps, int delayMs){
-    i = 0;
-    while(i < steps){
-      myStepperFL->onestep(FORWARD, DOUBLE);
-      myStepperFR->onestep(FORWARD, DOUBLE);
-      myStepperBL->onestep(FORWARD, DOUBLE);
-      myStepperBR->onestep(FORWARD, DOUBLE);
-      i++;
-      delay(delayMs);
-    }
-}
-
-void asyncGoRight(int steps, int delayMs){
-  i = 0;
-  while(i < steps){
-    myStepperFL->onestep(BACKWARD, DOUBLE);
-    myStepperFR->onestep(BACKWARD, DOUBLE);
-    myStepperBL->onestep(BACKWARD, DOUBLE);
-    myStepperBR->onestep(BACKWARD, DOUBLE);
-    delay(delayMs);
-  }
-
-}
-
-void asyncGoBack(int steps, int delayMs){
-    i = 0;
-    while(i < steps){
-    myStepperFL->onestep(FORWARD, DOUBLE);
-    myStepperFR->onestep(BACKWARD, DOUBLE);
-    myStepperBL->onestep(FORWARD, DOUBLE);
-    myStepperBR->onestep(BACKWARD, DOUBLE);
-    delay(delayMs);
-  }
-}
-
 // Incremental movement helper functions.
 void incrementForward() {
     myStepperFL->onestep(BACKWARD, DOUBLE);
