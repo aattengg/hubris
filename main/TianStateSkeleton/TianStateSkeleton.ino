@@ -1,7 +1,6 @@
 #include <FiniteStateMachine.h>
 
 //how many states are we cycling through?
-const byte NUMBER_OF_SELECTABLE_STATES = 10;
 const unsigned int DISTANCE_TOLERANCE = 2;
 const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 15;
 const unsigned int DRIVE_TO_WALL_REFERENCE_DISTANCE = 15;
