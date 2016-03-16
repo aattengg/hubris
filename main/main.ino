@@ -27,14 +27,22 @@
 #include <I2Cdev.h>
 #include <MPU6050_6Axis_MotionApps20.h>
 
+/********************
+ * Robot Dimensions *
+ ********************/
+/* Heights in cm */
+#define ROBOT_WIDTH                 17
+#define ROBOT_HEIGHT                20
+
 /****************************************
  * Ultrasonic Sensors Pin Configuration *
  ****************************************/
-#define US_MAX_DIST 200
-
 /* Distances in cm */
-#define US_FRONT_SEP
-#define US_FRONT_DIST_TO_CENTER
+#define US_MAX_DIST                 200
+
+#define US_FRONT_SEP                5.5
+#define US_LEFT_SEP                 12
+#define US_RIGHT_SEP                12
 
 /* Front Left Sensor */
 #define US_ECHO_FL      38
@@ -91,6 +99,8 @@ struct uSPair_t {
   unsigned int uS2Current;
   unsigned int uS2Buffer1 = 0;
   unsigned int uS2Buffer2 = 0;
+  float uSSepDist;
+  float distToCenter;
   float angle;
   unsigned int distance;
 };
@@ -139,26 +149,14 @@ void setup() {
 
 int i;
 void loop() {
-/*
-    int uS1 = sonar1.ping();
-    int uS2 = sonar2.ping();
-
-    float angle = asin((uS1 - uS2) / (US_ROUNDTRIP_CM * 15.0));
-    int distance = (uS1 + uS2)/(US_ROUNDTRIP_CM * 2.0) + 5/2.0 * sin(angle) + 0.5;
-
-    Serial.print("Angle: ");
-    Serial.println(180 / 3.14 * angle);
-
-    Serial.print("Distance: ");
-    Serial.print(distance);
-    Serial.println("cm");
-*/
     updateSonar(&uSFront);
     updateSonar(&uSLeft);
     updateSonar(&uSRight);
+    
     //printSonarData(uSFront);
-    //printSonarData(uSLeft);
+    printSonarData(uSLeft);
     //printSonarData(uSRight);
+
     getYPR();
 }
 
@@ -242,35 +240,49 @@ void incrementRotateRight() {
 void initSonar() {
   uSFront.sonar1 = &sonarFL;
   uSFront.sonar2 = &sonarFR;
+  uSFront.uSSepDist = US_FRONT_SEP;
+  uSFront.distToCenter = ROBOT_HEIGHT / 2.0;
   uSLeft.sonar1 = &sonarLB;
   uSLeft.sonar2 = &sonarLF;
+  uSLeft.uSSepDist = US_LEFT_SEP;
+  uSLeft.distToCenter = ROBOT_WIDTH / 2.0;
   uSRight.sonar1 = &sonarRF;
   uSRight.sonar2 = &sonarRB;
+  uSRight.uSSepDist = US_RIGHT_SEP;
+  uSRight.distToCenter = ROBOT_WIDTH / 2.0;
 }
 
 void updateSonar(uSPair_t* uSPair) {
     uSPair->uS1Current = uSPair->sonar1->ping();
     uSPair->uS2Current = uSPair->sonar2->ping();
-
+    
     uSPair->uS1Filtered = median3Filter(uSPair->uS1Current, uSPair->uS1Buffer1, uSPair->uS1Buffer2);
     uSPair->uS2Filtered = median3Filter(uSPair->uS2Current, uSPair->uS2Buffer1, uSPair->uS2Buffer2);
 
     uSPair->uS1Buffer2 = uSPair->uS1Buffer1;
     uSPair->uS1Buffer1 = uSPair->uS1Current;
     uSPair->uS2Buffer2 = uSPair->uS2Buffer1;
-    uSPair->uS2Buffer1 = uSPair->uS1Current;
+    uSPair->uS2Buffer1 = uSPair->uS2Current;
 
-    uSPair->angle = asin((uSPair->uS1Filtered - uSPair->uS2Filtered) / (US_ROUNDTRIP_CM * 15.0));
-    uSPair->distance = (uSPair->uS1Filtered + uSPair->uS2Filtered)/(US_ROUNDTRIP_CM * 2.0) + 5/2.0 * sin(uSPair->angle) + 0.5;
+    uSPair->angle = asin(int(uSPair->uS1Filtered - uSPair->uS2Filtered) / (US_ROUNDTRIP_CM * uSPair->uSSepDist));
+    uSPair->distance = (uSPair->uS1Filtered + uSPair->uS2Filtered)/(US_ROUNDTRIP_CM * 2.0) + uSPair->distToCenter * sin(uSPair->angle) + 0.5;
 }
 
 void printSonarData(uSPair_t uSPair) {
+  
     Serial.print("Angle: ");
     Serial.println(180 / 3.14 * uSPair.angle);
-
     Serial.print("Distance: ");
     Serial.print(uSPair.distance);
     Serial.println("cm");
+    /*
+    Serial.print("US1: ");
+    Serial.println(uSPair.uS1Filtered / US_ROUNDTRIP_CM);
+
+    Serial.print("US2: ");
+    Serial.println(uSPair.uS2Filtered / US_ROUNDTRIP_CM);
+    */
+    
 }
 
 // Data processing helper functions.
@@ -317,7 +329,7 @@ void initIMU()
 {
   // join I2C bus (I2Cdev library doesn't do this automatically)
     Wire.begin();
-    
+
     // initialize serial communication
     Serial.begin(115200);
     while (!Serial); // wait for Leonardo enumeration, others continue immediately
@@ -387,21 +399,23 @@ void getYPR()
 
         // read a packet from FIFO
         mpu.getFIFOBytes(fifoBuffer, packetSize);
-        
+
         // track FIFO count here in case there is > 1 packet available
         // (this lets us immediately read more without waiting for an interrupt)
         fifoCount -= packetSize;
-        
+
         // display Euler angles in degrees
         mpu.dmpGetQuaternion(&q, fifoBuffer);
         mpu.dmpGetGravity(&gravity, &q);
         mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+        /*
         Serial.print("ypr\t");
         Serial.print(ypr[0] * 180/M_PI);
         Serial.print("\t");
         Serial.print(ypr[1] * 180/M_PI);
         Serial.print("\t");
         Serial.println(ypr[2] * 180/M_PI);
+        */
 
         // blink LED to indicate activity
         blinkState = !blinkState;
