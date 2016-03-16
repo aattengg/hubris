@@ -153,7 +153,12 @@ void loop() {
     Serial.print(distance);
     Serial.println("cm");
 */
-    incrementForward();
+    updateSonar(&uSFront);
+    updateSonar(&uSLeft);
+    updateSonar(&uSRight);
+    //printSonarData(uSFront);
+    //printSonarData(uSLeft);
+    //printSonarData(uSRight);
 }
 
 void asyncGoForward(int steps, int delayMs){
@@ -242,20 +247,20 @@ void initSonar() {
   uSRight.sonar2 = &sonarRB;
 }
 
-void updateSonar(uSPair_t uSPair) {
-    uSPair.uS1Current = uSPair.sonar1->ping();
-    uSPair.uS2Current = uSPair.sonar2->ping();
+void updateSonar(uSPair_t* uSPair) {
+    uSPair->uS1Current = uSPair->sonar1->ping();
+    uSPair->uS2Current = uSPair->sonar2->ping();
 
-    uSPair.uS1Filtered = median3Filter(uSPair.uS1Current, uSPair.uS1Buffer1, uSPair.uS1Buffer2);
-    uSPair.uS2Filtered = median3Filter(uSPair.uS2Current, uSPair.uS2Buffer1, uSPair.uS2Buffer2);
+    uSPair->uS1Filtered = median3Filter(uSPair->uS1Current, uSPair->uS1Buffer1, uSPair->uS1Buffer2);
+    uSPair->uS2Filtered = median3Filter(uSPair->uS2Current, uSPair->uS2Buffer1, uSPair->uS2Buffer2);
 
-    uSPair.uS1Buffer2 = uSPair.uS1Buffer1;
-    uSPair.uS1Buffer1 = uSPair.uS1Current;
-    uSPair.uS2Buffer2 = uSPair.uS2Buffer1;
-    uSPair.uS2Buffer1 = uSPair.uS1Current;
+    uSPair->uS1Buffer2 = uSPair->uS1Buffer1;
+    uSPair->uS1Buffer1 = uSPair->uS1Current;
+    uSPair->uS2Buffer2 = uSPair->uS2Buffer1;
+    uSPair->uS2Buffer1 = uSPair->uS1Current;
 
-    uSPair.angle = asin((uSPair.uS1Filtered - uSPair.uS2Filtered) / (US_ROUNDTRIP_CM * 15.0));
-    uSPair.distance = (uSPair.uS1Filtered + uSPair.uS2Filtered)/(US_ROUNDTRIP_CM * 2.0) + 5/2.0 * sin(uSPair.angle) + 0.5;
+    uSPair->angle = asin((uSPair->uS1Filtered - uSPair->uS2Filtered) / (US_ROUNDTRIP_CM * 15.0));
+    uSPair->distance = (uSPair->uS1Filtered + uSPair->uS2Filtered)/(US_ROUNDTRIP_CM * 2.0) + 5/2.0 * sin(uSPair->angle) + 0.5;
 }
 
 void printSonarData(uSPair_t uSPair) {
