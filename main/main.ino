@@ -26,6 +26,7 @@
 #include <Wire.h>
 #include <I2Cdev.h>
 #include <MPU6050.h>
+#include "Ultrasonic.h"
 
 /********************
  * Robot Dimensions *
@@ -37,6 +38,12 @@
 /****************************************
  * Ultrasonic Sensors Pin Configuration *
  ****************************************/
+#define US_PAIRS                    3
+#define US_NUM                      6
+
+// Milliseconds between pings
+#define US_PING_INTERVAL            33
+
 /* Distances in cm */
 #define US_MAX_DIST                 200
 
@@ -79,27 +86,18 @@ Adafruit_StepperMotor *myStepperBR = AFMStop.getStepper(200, 2);  // Bottom Righ
 Adafruit_StepperMotor *myStepperFL = AFMSbot.getStepper(200, 1);  //Front Left
 Adafruit_StepperMotor *myStepperBL = AFMSbot.getStepper(200, 2);  //Bottom Left
 
-// Define sonars from the ultrasonic sensors
-NewPing sonarFL(US_TRIGGER_FL, US_ECHO_FL, US_MAX_DIST);
-NewPing sonarFR(US_TRIGGER_FR, US_ECHO_FR, US_MAX_DIST);
-NewPing sonarLF(US_TRIGGER_LF, US_ECHO_LF, US_MAX_DIST);
-NewPing sonarLB(US_TRIGGER_LB, US_ECHO_LB, US_MAX_DIST);
-NewPing sonarRF(US_TRIGGER_RF, US_ECHO_RF, US_MAX_DIST);
-NewPing sonarRB(US_TRIGGER_RB, US_ECHO_RB, US_MAX_DIST);
+// Define ultrasonic sensors
+Ultrasonic usFL(US_TRIGGER_FL, US_ECHO_FL, US_MAX_DIST);
+Ultrasonic usFR(US_TRIGGER_FR, US_ECHO_FR, US_MAX_DIST);
+Ultrasonic usLF(US_TRIGGER_LF, US_ECHO_LF, US_MAX_DIST);
+Ultrasonic usLB(US_TRIGGER_LB, US_ECHO_LB, US_MAX_DIST);
+Ultrasonic usRF(US_TRIGGER_RF, US_ECHO_RF, US_MAX_DIST);
+Ultrasonic usRB(US_TRIGGER_RB, US_ECHO_RB, US_MAX_DIST);
 
-// Ultrasonic variables.
-struct uSPair_t {
-  NewPing *sonar1;
-  NewPing *sonar2;
-  unsigned int uS1Filtered;
-  unsigned int uS1Current;
-  unsigned int uS1Buffer1 = 0;
-  unsigned int uS1Buffer2 = 0;
-  unsigned int uS2Filtered;
-  unsigned int uS2Current;
-  unsigned int uS2Buffer1 = 0;
-  unsigned int uS2Buffer2 = 0;
-  float uSSepDist;
+// Struct for a pair of ultrasonic sensors.
+struct USPair_t {
+  Ultrasonic *us[2];
+  float usSepDist;
   float distToCenter;
   int angleCurrent;
   int angleBuffer1 = 0;
@@ -107,6 +105,16 @@ struct uSPair_t {
   int angleFiltered;
   unsigned int distance;
 };
+
+typedef enum USPairDir {
+    USPairDirLeft = 0,
+    USPairDirFront,
+    USPairDirRight
+};
+
+USPair_t USPairs[US_NUM];
+
+Ultrasonic *curUS = NULL;
 
 // Define Address for IMU
 MPU6050 accelgyro; //0x68
@@ -122,9 +130,7 @@ const float alpha = 0.5;
 #define LED_PIN 13 //IMU LED
 bool blinkState = false;
 
-uSPair_t uSFront;
-uSPair_t uSLeft;
-uSPair_t uSRight;
+volatile bool interrupt = false;
 
 void setup() {
   while (!Serial);
@@ -132,34 +138,40 @@ void setup() {
   AFMSbot.begin();      // Start the bottom shield
   AFMStop.begin();      // Start the top shield
   initIMU();
-  TWBR = ((F_CPU /200000l) - 16) / 2; // Change the i2c clock to 200KHz so motor can run faster (400KHz is fastest it can go)
+  TWBR = ((F_CPU /400000l) - 16) / 2; // Change the i2c clock to 200KHz so motor can run faster (400KHz is fastest it can go)
   initSonar();
 }
 
-int i;
 void loop() {
-//    updateSonar(&uSFront);
-//    updateSonar(&uSLeft);
-//    updateSonar(&uSRight);
-//
-//    //printSonarData(uSFront);
-//    //printSonarData(uSLeft);
-//    printSonarData(uSRight);
+    for (int i = 0; i < US_PAIRS; i++) {
+        for (int j = 0; j < 2; j++) {
+            if (millis() >= USPairs[i].us[j]->pingTimer) {
+                USPairs[i].us[j]->pingTimer += US_PING_INTERVAL * US_NUM;
+                if (i == 0 && curUS == USPairs[US_PAIRS-1].us[1]) {
 
+                    //printSonarData(&USPairs[USPairDirLeft]);
+                    //printSonarData(&USPairs[USPairDirFront]);
+                    printSonarData(&USPairs[USPairDirRight]);
+                }
+                curUS->us.timer_stop();
+                curUS = USPairs[i].us[j];
+                curUS->us.ping_timer(echoCheck);
+            }
+        }
+    }
     getPR();
-    for(int i=0;i<100;i++)
-      incrementForward();
+    incrementForward();
 }
 
 // Incremental movement helper functions.
-void incrementForward() {
+void incrementBackward() {
     myStepperFL->onestep(BACKWARD, DOUBLE);
     myStepperFR->onestep(FORWARD, DOUBLE);
     myStepperBL->onestep(BACKWARD, DOUBLE);
     myStepperBR->onestep(FORWARD, DOUBLE);
 }
 
-void incrementBackward() {
+void incrementForward() {
     myStepperFL->onestep(FORWARD, DOUBLE);
     myStepperFR->onestep(BACKWARD, DOUBLE);
     myStepperBL->onestep(FORWARD, DOUBLE);
@@ -182,54 +194,72 @@ void incrementRotateRight() {
 
 // Ultrasonic sensor helper functions.
 void initSonar() {
-  uSFront.sonar1 = &sonarFL;
-  uSFront.sonar2 = &sonarFR;
-  uSFront.uSSepDist = US_FRONT_SEP;
-  uSFront.distToCenter = ROBOT_HEIGHT / 2.0;
-  uSLeft.sonar1 = &sonarLB;
-  uSLeft.sonar2 = &sonarLF;
-  uSLeft.uSSepDist = US_LEFT_SEP;
-  uSLeft.distToCenter = ROBOT_WIDTH / 2.0;
-  uSRight.sonar1 = &sonarRF;
-  uSRight.sonar2 = &sonarRB;
-  uSRight.uSSepDist = US_RIGHT_SEP;
-  uSRight.distToCenter = ROBOT_WIDTH / 2.0;
+    USPairs[USPairDirLeft].us[0] = &usLB;
+    USPairs[USPairDirLeft].us[1] = &usLF;
+    USPairs[USPairDirLeft].usSepDist = US_LEFT_SEP;
+    USPairs[USPairDirLeft].distToCenter = ROBOT_WIDTH / 2.0;
+
+    USPairs[USPairDirFront].us[0] = &usFL;
+    USPairs[USPairDirFront].us[1] = &usFR;
+    USPairs[USPairDirFront].usSepDist = US_FRONT_SEP;
+    USPairs[USPairDirFront].distToCenter = ROBOT_HEIGHT / 2.0;
+
+    USPairs[USPairDirRight].us[0] = &usRF;
+    USPairs[USPairDirRight].us[1] = &usRB;
+    USPairs[USPairDirRight].usSepDist = US_RIGHT_SEP;
+    USPairs[USPairDirRight].distToCenter = ROBOT_WIDTH / 2.0;
+
+    USPairs[0].us[0]->pingTimer = millis() + 75;
+    USPairs[0].us[1]->pingTimer = USPairs[0].us[0]->pingTimer + US_PING_INTERVAL;
+    for (int i = 1; i < US_NUM; i++)
+    {
+        USPairs[i].us[0]->pingTimer = USPairs[i-1].us[1]->pingTimer + US_PING_INTERVAL;
+        USPairs[i].us[1]->pingTimer = USPairs[i].us[0]->pingTimer + US_PING_INTERVAL;
+    }
 }
 
-void updateSonar(uSPair_t* uSPair) {
-    uSPair->uS1Current = uSPair->sonar1->ping();
-    uSPair->uS2Current = uSPair->sonar2->ping();
-
-    uSPair->uS1Filtered = median3Filter(uSPair->uS1Current, uSPair->uS1Buffer1, uSPair->uS1Buffer2);
-    uSPair->uS2Filtered = median3Filter(uSPair->uS2Current, uSPair->uS2Buffer1, uSPair->uS2Buffer2);
-
-    uSPair->uS1Buffer2 = uSPair->uS1Buffer1;
-    uSPair->uS1Buffer1 = uSPair->uS1Current;
-    uSPair->uS2Buffer2 = uSPair->uS2Buffer1;
-    uSPair->uS2Buffer1 = uSPair->uS2Current;
-
-    uSPair->angleCurrent = (int)(180 / 3.14 * asin(int(uSPair->uS1Filtered - uSPair->uS2Filtered) / (US_ROUNDTRIP_CM * uSPair->uSSepDist)));
-    uSPair->distance = (uSPair->uS1Filtered + uSPair->uS2Filtered)/(US_ROUNDTRIP_CM * 2.0) + uSPair->distToCenter * cos(uSPair->angleCurrent) + 0.5;
-
-    uSPair->angleFiltered = median3Filter(uSPair->angleCurrent, uSPair->angleBuffer1, uSPair->angleBuffer2);
-
-    uSPair->angleBuffer2 = uSPair->angleBuffer1;
-    uSPair->angleBuffer1 = uSPair->angleCurrent;
+void echoCheck(){
+    if (curUS->us.check_timer())
+        curUS->curDist = curUS->us.ping_result / US_ROUNDTRIP_CM;
 }
 
-void printSonarData(uSPair_t uSPair) {
+/*
+void updateSonar(USPair_t* USPair) {
+    USPair->US1Current = USPair->us1->ping();
+    USPair->US2Current = USPair->us2->ping();
 
-    Serial.print("Angle: ");
-    Serial.println(uSPair.angleFiltered);
-    Serial.print("Distance: ");
-    Serial.print(uSPair.distance);
-    Serial.println("cm");
+    USPair->US1Filtered = median3Filter(USPair->US1Current, USPair->US1Buffer1, USPair->US1Buffer2);
+    USPair->US2Filtered = median3Filter(USPair->US2Current, USPair->US2Buffer1, USPair->US2Buffer2);
+
+    USPair->US1Buffer2 = USPair->US1Buffer1;
+    USPair->US1Buffer1 = USPair->US1Current;
+    USPair->US2Buffer2 = USPair->US2Buffer1;
+    USPair->US2Buffer1 = USPair->US2Current;
+
+    USPair->angleCurrent = (int)(180 / 3.14 * asin(int(USPair->US1Filtered - USPair->US2Filtered) / (US_ROUNDTRIP_CM * USPair->USSepDist)));
+    USPair->distance = (USPair->US1Filtered + USPair->US2Filtered)/(US_ROUNDTRIP_CM * 2.0) + USPair->distToCenter * cos(USPair->angleCurrent) + 0.5;
+
+    USPair->angleFiltered = median3Filter(USPair->angleCurrent, USPair->angleBuffer1, USPair->angleBuffer2);
+
+    USPair->angleBuffer2 = USPair->angleBuffer1;
+    USPair->angleBuffer1 = USPair->angleCurrent;
+}
+*/
+
+void printSonarData(USPair_t *USPair) {
+
     /*
-    Serial.print("US1: ");
-    Serial.println(uSPair.uS1Filtered / US_ROUNDTRIP_CM);
-    Serial.print("US2: ");
-    Serial.println(uSPair.uS2Filtered / US_ROUNDTRIP_CM);
+    Serial.print("Angle: ");
+    Serial.println(USPair->angleFiltered);
+    Serial.print("Distance: ");
+    Serial.print(USPair->distance);
+    Serial.println("cm");
     */
+
+    Serial.print("US1: ");
+    Serial.println(USPair->us[0]->curDist);
+    Serial.print("US2: ");
+    Serial.println(USPair->us[1]->curDist);
 
 }
 
@@ -286,22 +316,25 @@ void initIMU()
 }
 
 void getPR()
-{     
+{
     // read raw accel/gyro measurements from device
     accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
- 
+
     //Low Pass Filter
     fXg = ax * alpha + (fXg * (1.0 - alpha));
     fYg = ay * alpha + (fYg * (1.0 - alpha));
     fZg = az * alpha + (fZg * (1.0 - alpha));
- 
+
     //Roll & Pitch Equations
-    pitch  = (atan2(-fYg, fZg)*180.0)/M_PI;
-    roll = (atan2(fXg, sqrt(fYg*fYg + fZg*fZg))*180.0)/M_PI;
-    
+    double roll  = (atan2(-fYg, fZg)*180.0)/M_PI;
+    double pitch = (atan2(fXg, sqrt(fYg*fYg + fZg*fZg))*180.0)/M_PI;
+
     // display tab-separated pitch/roll/yaw values
-    Serial.print("pitch/roll:\t");
+
+/*
+    Serial.print("a/g:\t");
     Serial.print(pitch); Serial.print("\t");
     Serial.println(roll);
+    */
+    //Serial.println(yaw);
 }
-
