@@ -67,7 +67,7 @@ Adafruit_MotorShield AFMStop(0x60); // Default address, no jumpers
 
 // Define Motors
 Adafruit_StepperMotor *myStepperFR = AFMStop.getStepper(200, 1);  //Front Right
-Adafruit_StepperMotor *myStepperBR= AFMStop.getStepper(200, 2);   // Bottom Right
+Adafruit_StepperMotor *myStepperBR = AFMStop.getStepper(200, 2);  // Bottom Right
 Adafruit_StepperMotor *myStepperFL = AFMSbot.getStepper(200, 1);  //Front Left
 Adafruit_StepperMotor *myStepperBL = AFMSbot.getStepper(200, 2);  //Bottom Left
 
@@ -107,6 +107,26 @@ void dmpDataReady() {
     mpuInterrupt = true;
 }
 
+// Ultrasonic variables.
+struct uSPair_t {
+  NewPing *sonar1;
+  NewPing *sonar2;
+  unsigned int uS1Filtered;
+  unsigned int uS1Current;
+  unsigned int uS1Buffer1 = 0;
+  unsigned int uS1Buffer2 = 0;
+  unsigned int uS2Filtered;
+  unsigned int uS2Current;
+  unsigned int uS2Buffer1 = 0;
+  unsigned int uS2Buffer2 = 0;
+  float angle;
+  unsigned int distance;
+};
+
+uSPair_t uSFront;
+uSPair_t uSLeft;
+uSPair_t uSRight;
+
 void setup() {
   while (!Serial);
   Serial.begin(9600);   // set up Serial library at 9600 bps
@@ -114,6 +134,7 @@ void setup() {
   AFMStop.begin();      // Start the top shield
   TWBR = ((F_CPU /200000l) - 16) / 2; // Change the i2c clock to 200KHz so motor can run faster (400KHz is fastest it can go)
   initIMU();
+  initSonar();
 }
 
 int i;
@@ -182,7 +203,7 @@ void asyncGoBack(int steps, int delayMs){
   }
 }
 
-// Incremental movement functions.
+// Incremental movement helper functions.
 void incrementForward() {
     myStepperFL->onestep(BACKWARD, DOUBLE);
     myStepperFR->onestep(FORWARD, DOUBLE);
@@ -211,7 +232,42 @@ void incrementRotateRight() {
     myStepperBR->onestep(BACKWARD, DOUBLE);
 }
 
-// Data processing functions.
+// Ultrasonic sensor helper functions.
+void initSonar() {
+  uSFront.sonar1 = &sonarFL;
+  uSFront.sonar2 = &sonarFR;
+  uSLeft.sonar1 = &sonarLB;
+  uSLeft.sonar2 = &sonarLF;
+  uSRight.sonar1 = &sonarRF;
+  uSRight.sonar2 = &sonarRB;
+}
+
+void updateSonar(uSPair_t uSPair) {
+    uSPair.uS1Current = uSPair.sonar1->ping();
+    uSPair.uS2Current = uSPair.sonar2->ping();
+
+    uSPair.uS1Filtered = median3Filter(uSPair.uS1Current, uSPair.uS1Buffer1, uSPair.uS1Buffer2);
+    uSPair.uS2Filtered = median3Filter(uSPair.uS2Current, uSPair.uS2Buffer1, uSPair.uS2Buffer2);
+
+    uSPair.uS1Buffer2 = uSPair.uS1Buffer1;
+    uSPair.uS1Buffer1 = uSPair.uS1Current;
+    uSPair.uS2Buffer2 = uSPair.uS2Buffer1;
+    uSPair.uS2Buffer1 = uSPair.uS1Current;
+
+    uSPair.angle = asin((uSPair.uS1Filtered - uSPair.uS2Filtered) / (US_ROUNDTRIP_CM * 15.0));
+    uSPair.distance = (uSPair.uS1Filtered + uSPair.uS2Filtered)/(US_ROUNDTRIP_CM * 2.0) + 5/2.0 * sin(uSPair.angle) + 0.5;
+}
+
+void printSonarData(uSPair_t uSPair) {
+    Serial.print("Angle: ");
+    Serial.println(180 / 3.14 * uSPair.angle);
+
+    Serial.print("Distance: ");
+    Serial.print(uSPair.distance);
+    Serial.println("cm");
+}
+
+// Data processing helper functions.
 unsigned long median3Filter(unsigned long a, unsigned long b, unsigned long c) {
     if (a >= b)
     {
