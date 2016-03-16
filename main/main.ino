@@ -107,7 +107,7 @@ struct USPair_t {
   float distance;
 };
 
-typedef enum USPairDir {
+enum USPairDir {
     USPairDirLeft = 0,
     USPairDirFront,
     USPairDirRight
