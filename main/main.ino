@@ -129,7 +129,7 @@ uSPair_t uSRight;
 
 void setup() {
   while (!Serial);
-  Serial.begin(9600);   // set up Serial library at 9600 bps
+  Serial.begin(115200);   // set up Serial library at 9600 bps
   AFMSbot.begin();      // Start the bottom shield
   AFMStop.begin();      // Start the top shield
   TWBR = ((F_CPU /200000l) - 16) / 2; // Change the i2c clock to 200KHz so motor can run faster (400KHz is fastest it can go)
@@ -159,6 +159,7 @@ void loop() {
     //printSonarData(uSFront);
     //printSonarData(uSLeft);
     //printSonarData(uSRight);
+    getYPR();
 }
 
 void asyncGoForward(int steps, int delayMs){
@@ -390,23 +391,22 @@ void getYPR()
         // track FIFO count here in case there is > 1 packet available
         // (this lets us immediately read more without waiting for an interrupt)
         fifoCount -= packetSize;
-
-        #ifdef OUTPUT_READABLE_YAWPITCHROLL
-            // display Euler angles in degrees
-            mpu.dmpGetQuaternion(&q, fifoBuffer);
-            mpu.dmpGetGravity(&gravity, &q);
-            mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-            Serial.print("ypr\t");
-            Serial.print(ypr[0] * 180/M_PI);
-            Serial.print("\t");
-            Serial.print(ypr[1] * 180/M_PI);
-            Serial.print("\t");
-            Serial.println(ypr[2] * 180/M_PI);
-        #endif
+        
+        // display Euler angles in degrees
+        mpu.dmpGetQuaternion(&q, fifoBuffer);
+        mpu.dmpGetGravity(&gravity, &q);
+        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+        Serial.print("ypr\t");
+        Serial.print(ypr[0] * 180/M_PI);
+        Serial.print("\t");
+        Serial.print(ypr[1] * 180/M_PI);
+        Serial.print("\t");
+        Serial.println(ypr[2] * 180/M_PI);
 
         // blink LED to indicate activity
         blinkState = !blinkState;
         digitalWrite(LED_PIN, blinkState);
+        delay(1);
     }
 }
 
