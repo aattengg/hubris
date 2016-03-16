@@ -155,10 +155,10 @@ void loop() {
     updateSonar(&uSFront);
     updateSonar(&uSLeft);
     updateSonar(&uSRight);
-    
+
     //printSonarData(uSFront);
-    printSonarData(uSLeft);
-    //printSonarData(uSRight);
+    //printSonarData(uSLeft);
+    printSonarData(uSRight);
 
     getYPR();
 }
@@ -258,7 +258,7 @@ void initSonar() {
 void updateSonar(uSPair_t* uSPair) {
     uSPair->uS1Current = uSPair->sonar1->ping();
     uSPair->uS2Current = uSPair->sonar2->ping();
-    
+
     uSPair->uS1Filtered = median3Filter(uSPair->uS1Current, uSPair->uS1Buffer1, uSPair->uS1Buffer2);
     uSPair->uS2Filtered = median3Filter(uSPair->uS2Current, uSPair->uS2Buffer1, uSPair->uS2Buffer2);
 
@@ -268,7 +268,7 @@ void updateSonar(uSPair_t* uSPair) {
     uSPair->uS2Buffer1 = uSPair->uS2Current;
 
     uSPair->angleCurrent = (int)(180 / 3.14 * asin(int(uSPair->uS1Filtered - uSPair->uS2Filtered) / (US_ROUNDTRIP_CM * uSPair->uSSepDist)));
-    uSPair->distance = (uSPair->uS1Filtered + uSPair->uS2Filtered)/(US_ROUNDTRIP_CM * 2.0) + uSPair->distToCenter * sin(uSPair->angleCurrent) + 0.5;
+    uSPair->distance = (uSPair->uS1Filtered + uSPair->uS2Filtered)/(US_ROUNDTRIP_CM * 2.0) + uSPair->distToCenter * cos(uSPair->angleCurrent) + 0.5;
 
     uSPair->angleFiltered = median3Filter(uSPair->angleCurrent, uSPair->angleBuffer1, uSPair->angleBuffer2);
 
@@ -277,7 +277,7 @@ void updateSonar(uSPair_t* uSPair) {
 }
 
 void printSonarData(uSPair_t uSPair) {
-  
+
     Serial.print("Angle: ");
     Serial.println(uSPair.angleFiltered);
     Serial.print("Distance: ");
@@ -286,11 +286,10 @@ void printSonarData(uSPair_t uSPair) {
     /*
     Serial.print("US1: ");
     Serial.println(uSPair.uS1Filtered / US_ROUNDTRIP_CM);
-
     Serial.print("US2: ");
     Serial.println(uSPair.uS2Filtered / US_ROUNDTRIP_CM);
     */
-    
+
 }
 
 // Data processing helper functions.
