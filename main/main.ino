@@ -79,6 +79,22 @@ NewPing sonarLB(US_TRIGGER_LB, US_ECHO_LB, US_MAX_DIST);
 NewPing sonarRF(US_TRIGGER_RF, US_ECHO_RF, US_MAX_DIST);
 NewPing sonarRB(US_TRIGGER_RB, US_ECHO_RB, US_MAX_DIST);
 
+// Ultrasonic variables.
+struct uSPair_t {
+  NewPing *sonar1;
+  NewPing *sonar2;
+  unsigned int uS1Filtered;
+  unsigned int uS1Current;
+  unsigned int uS1Buffer1 = 0;
+  unsigned int uS1Buffer2 = 0;
+  unsigned int uS2Filtered;
+  unsigned int uS2Current;
+  unsigned int uS2Buffer1 = 0;
+  unsigned int uS2Buffer2 = 0;
+  float angle;
+  unsigned int distance;
+};
+
 // Define Address for IMU
 MPU6050 mpu; //0x68
 
@@ -106,22 +122,6 @@ volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin h
 void dmpDataReady() {
     mpuInterrupt = true;
 }
-
-// Ultrasonic variables.
-struct uSPair_t {
-  NewPing *sonar1;
-  NewPing *sonar2;
-  unsigned int uS1Filtered;
-  unsigned int uS1Current;
-  unsigned int uS1Buffer1 = 0;
-  unsigned int uS1Buffer2 = 0;
-  unsigned int uS2Filtered;
-  unsigned int uS2Current;
-  unsigned int uS2Buffer1 = 0;
-  unsigned int uS2Buffer2 = 0;
-  float angle;
-  unsigned int distance;
-};
 
 uSPair_t uSFront;
 uSPair_t uSLeft;
