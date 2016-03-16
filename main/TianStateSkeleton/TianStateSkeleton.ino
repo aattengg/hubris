@@ -93,10 +93,12 @@ void driveToWallUpdate() {
     }
 }
 
+//change name?
 void rotateLeft90Update() {
     if (rightSensorNewData) {
         updateSonar(&uSRight);
     }
+    //will require low angle tolerance and must avoid initial right wall (utilize front sensors as well?)
     if (abs(uSRight.angleFiltered - 90) > ANGLE_TOLERANCE) {
         incrementRotateLeft();
     }
@@ -115,18 +117,28 @@ void driveToRampUpdate() {
     if (rightSensorsNewData) {
         updateSonar(&uSRight);
     }
-    getYPR();
-    if (pitch > (90 - PITCH_TOLERANCE)) {
-        incrementForward();
+    //double check logic
+    if (uSRight.angleFiltered - 90 > ANGLE_TOLERANCE) {
+        incrementRotateLeft();
     }
-    else {
-        // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 3;
+    else if(uSRight.angleFiltered - 90 < -ANGLE_TOLERANCE)  {
+      incrementRotateRight();
+    }
+    else  {
+      getPR();
+      if (pitch > (90 - PITCH_TOLERANCE)) {
+          incrementForward();
+      }
+      else {
+          // Trigger state transition. Use a proper enum for this when time permits.
+          currentState = 3;
+      }
     }
 }
 
+//unsure of whats going on here
 void getOnRampUpdate() {
-    getYPR();
+    getPR();
     if (roll < -ROLL_TOLERANCE) {
         for (i = 0; i < 100; i++) {
             incrementBackward();
@@ -165,7 +177,7 @@ void getOnRampUpdate() {
 }
 
 void goUpRampUpdate() {
-    getYPR();
+    getPR();
     if (pitch < (90 - PITCH_TOLERANCE)) {
         incrementForward();
     }
@@ -176,7 +188,7 @@ void goUpRampUpdate() {
 }
 
 void onFlatRampUpdate() {
-    getYPR();
+    getPR();
     if (pitch < (90 + PITCH_TOLERANCE)) {
         incrementForward();
     }
@@ -187,7 +199,7 @@ void onFlatRampUpdate() {
 }
 
 void goDownRampUpdate() {
-    getYPR();
+    getPR();
     if (pitch > (90 + PITCH_TOLERANCE)) {
         incrementForward();
     }
