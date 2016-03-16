@@ -113,6 +113,7 @@ MPU6050 accelgyro; //0x68
 
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
+double pitch, roll;
 double fXg = 0;
 double fYg = 0;
 double fZg = 0;
@@ -145,7 +146,7 @@ void loop() {
 //    //printSonarData(uSLeft);
 //    printSonarData(uSRight);
 
-    getYPR();
+    getPR();
     for(int i=0;i<100;i++)
       incrementForward();
 }
@@ -331,7 +332,7 @@ void initIMU()
     pinMode(LED_PIN, OUTPUT);
 }
 
-void getYPR()
+void getPR()
 {     
     // read raw accel/gyro measurements from device
     accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
@@ -342,13 +343,12 @@ void getYPR()
     fZg = az * alpha + (fZg * (1.0 - alpha));
  
     //Roll & Pitch Equations
-    double roll  = (atan2(-fYg, fZg)*180.0)/M_PI;
-    double pitch = (atan2(fXg, sqrt(fYg*fYg + fZg*fZg))*180.0)/M_PI;
+    pitch  = (atan2(-fYg, fZg)*180.0)/M_PI;
+    roll = (atan2(fXg, sqrt(fYg*fYg + fZg*fZg))*180.0)/M_PI;
     
     // display tab-separated pitch/roll/yaw values
-    Serial.print("a/g:\t");
+    Serial.print("pitch/roll:\t");
     Serial.print(pitch); Serial.print("\t");
     Serial.println(roll);
-    //Serial.println(yaw);
 }
 
