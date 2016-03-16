@@ -26,8 +26,8 @@
 #include <Wire.h>
 #include <I2Cdev.h>
 #include <MPU6050.h>
-#include <Ultrasonic.h>
 #include <FiniteStateMachine.h>
+#include "Ultrasonic.h"
 
 /********************
  * Robot Dimensions *
@@ -100,11 +100,11 @@ struct USPair_t {
   Ultrasonic *us[2];
   float usSepDist;
   float distToCenter;
-  int angleCurrent;
-  int angleBuffer1 = 0;
-  int angleBuffer2 = 0;
-  int angleFiltered;
-  unsigned int distance;
+  float angleCurrent; // Angle in radians
+  float angleBuffer1 = 0;
+  float angleBuffer2 = 0;
+  float angle;
+  float distance;
 };
 
 typedef enum USPairDir {
@@ -189,12 +189,6 @@ void loop() {
         for (int j = 0; j < 2; j++) {
             if (millis() >= USPairs[i].us[j]->pingTimer) {
                 USPairs[i].us[j]->pingTimer += US_PING_INTERVAL * US_NUM;
-                if (i == 0 && curUS == USPairs[US_PAIRS-1].us[1]) {
-
-                    //printSonarData(&USPairs[USPairDirLeft]);
-                    //printSonarData(&USPairs[USPairDirFront]);
-                    printSonarData(&USPairs[USPairDirRight]);
-                }
                 curUS->us.timer_stop();
                 curUS = USPairs[i].us[j];
                 curUS->us.ping_timer(echoCheck);
@@ -263,7 +257,7 @@ void initSonar() {
 
 void echoCheck(){
     if (curUS->us.check_timer())
-        curUS->curDist = curUS->us.ping_result / US_ROUNDTRIP_CM;
+        curUS->curDist = curUS->us.ping_result / float(US_ROUNDTRIP_CM);
 }
 
 /*
@@ -282,32 +276,64 @@ void updateSonar(USPair_t* USPair) {
     USPair->angleCurrent = (int)(180 / 3.14 * asin(int(USPair->US1Filtered - USPair->US2Filtered) / (US_ROUNDTRIP_CM * USPair->USSepDist)));
     USPair->distance = (USPair->US1Filtered + USPair->US2Filtered)/(US_ROUNDTRIP_CM * 2.0) + USPair->distToCenter * cos(USPair->angleCurrent) + 0.5;
 
-    USPair->angleFiltered = median3Filter(USPair->angleCurrent, USPair->angleBuffer1, USPair->angleBuffer2);
+    USPair->angle = median3Filter(USPair->angleCurrent, USPair->angleBuffer1, USPair->angleBuffer2);
 
     USPair->angleBuffer2 = USPair->angleBuffer1;
     USPair->angleBuffer1 = USPair->angleCurrent;
 }
 */
 
+void updateSonar(USPair_t *USPair) {
+    Ultrasonic *us0 = USPair->us[0];
+    Ultrasonic *us1 = USPair->us[1];
+
+    us0->filteredDist = median3Filter(us0->curDist, us0->distBuffer1, us0->distBuffer2);
+    us1->filteredDist = median3Filter(us1->curDist, us1->distBuffer1, us1->distBuffer2);
+
+    us0->distBuffer2 = us0->distBuffer1;
+    us0->distBuffer1 = us0->curDist;
+    us1->distBuffer2 = us1->distBuffer1;
+    us1->distBuffer1 = us1->curDist;
+
+    USPair->angleCurrent = asin(float(us0->filteredDist - us1->filteredDist) / (USPair->usSepDist));
+
+    USPair->angle = median3Filter(USPair->angleCurrent, USPair->angleBuffer1, USPair->angleBuffer2);
+    USPair->angleBuffer2 = USPair->angleBuffer1;
+    USPair->angleBuffer1 = USPair->angleCurrent;
+
+    USPair->distance = (us0->filteredDist + us1->filteredDist)/(2.0) + USPair->distToCenter * cos(USPair->angle);
+}
+
 void printSonarData(USPair_t *USPair) {
 
+    Ultrasonic *us0 = USPair->us[0];
+    Ultrasonic *us1 = USPair->us[1];
     /*
-    Serial.print("Angle: ");
-    Serial.println(USPair->angleFiltered);
-    Serial.print("Distance: ");
-    Serial.print(USPair->distance);
-    Serial.println("cm");
+    Serial.println("Anthony Debugs:");
+    Serial.println(us0->filteredDist - us1->filteredDist);
+    Serial.println((us0->curDist + us1->curDist)/(2.0), 4);
+    Serial.println(USPair->distToCenter, 4);
+    Serial.println(USPair->usSepDist, 4);
+    Serial.println(USPair->angleCurrent, 4);
+    Serial.println(cos(USPair->angleCurrent), 4);
     */
 
-    Serial.print("US1: ");
-    Serial.println(USPair->us[0]->curDist);
-    Serial.print("US2: ");
-    Serial.println(USPair->us[1]->curDist);
 
+    Serial.print("Angle: ");
+    Serial.println(USPair->angle * 180 / 3.1415, 4);
+    Serial.print("Distance: ");
+    Serial.print(USPair->distance, 4);
+    Serial.println("cm");
+    /*
+    Serial.print("US1: ");
+    Serial.println(USPair->us[0]->curDist, 4);
+    Serial.print("US2: ");
+    Serial.println(USPair->us[1]->curDist, 4);
+    */
 }
 
 // Data processing helper functions.
-int median3Filter(int a, int b, int c) {
+float median3Filter(float a, float b, float c) {
     if (a >= b)
     {
       if (a <= c)
@@ -407,22 +433,23 @@ void runFSM()
 }
 
 void driveToWallUpdate() {
-    if (frontSensorsNewData) {
-        updateSonar(&uSFront);
-    }
-    if (rightSensorsNewData) {
-        updateSonar(&uSRight);
-    }
-    if (uSFront.distance < DRIVE_TO_WALL_DESIRED_DISTANCE) {
+    updateSonar(&USPairs[USPairDirFront]);
+    updateSonar(&USPairs[USPairDirRight]);
+
+    float frontDistance = USPairs[USPairDirFront].distance;
+    float rightDistance = USPairs[USPairDirRight].distance;
+    float rightAngle = USPairs[USPairDirRight].angle;
+
+    if (frontDistance < DRIVE_TO_WALL_DESIRED_DISTANCE) {
         // Trigger state transition. Use a proper enum for this when time permits.
         prevState = currentState;
         currentState = 1;
     }
     else {
-        if ((uSRight.distance < (DRIVE_TO_WALL_REFERENCE_DISTANCE - DISTANCE_TOLERANCE)) && (uSRight.angleFiltered < ANGLE_TOLERANCE)) {
+        if ((rightDistance < (DRIVE_TO_WALL_REFERENCE_DISTANCE - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
             incrementRotateLeft();
         }
-        else if ((uSRight.distance > (DRIVE_TO_WALL_REFERENCE_DISTANCE + DISTANCE_TOLERANCE)) && (uSRight.angleFiltered > ANGLE_TOLERANCE)) {
+        else if ((rightDistance > (DRIVE_TO_WALL_REFERENCE_DISTANCE + DISTANCE_TOLERANCE)) && (rightAngle > ANGLE_TOLERANCE)) {
             incrementRotateRight();
         }
         else {
@@ -433,11 +460,11 @@ void driveToWallUpdate() {
 
 //change name?
 void rotateLeft90Update() {
-    if (rightSensorNewData) {
-        updateSonar(&uSRight);
-    }
+    updateSonar(&USPairs[USPairDirRight]);
+    float rightAngle = USPairs[USPairDirRight].angle;
+
     //will require low angle tolerance and must avoid initial right wall (utilize front sensors as well?)
-    if (abs(uSRight.angleFiltered - 90) > ANGLE_TOLERANCE) {
+    if (abs(rightAngle - 90) > ANGLE_TOLERANCE) {
         incrementRotateLeft();
     }
     else {
@@ -445,21 +472,21 @@ void rotateLeft90Update() {
         if (prevState == 0) {
             currentState = 2;
         }
-        else  // prevState == 7 || prevState == 8;
+        else {  // prevState == 7 || prevState == 8;
             currentState = 8;
         }
     }
 }
 
 void driveToRampUpdate() {
-    if (rightSensorsNewData) {
-        updateSonar(&uSRight);
-    }
+    updateSonar(&USPairs[USPairDirRight]);
+    float rightAngle = USPairs[USPairDirRight].angle;
+
     //double check logic
-    if (uSRight.angleFiltered - 90 > ANGLE_TOLERANCE) {
+    if (rightAngle - 90 > ANGLE_TOLERANCE) {
         incrementRotateLeft();
     }
-    else if(uSRight.angleFiltered - 90 < -ANGLE_TOLERANCE)  {
+    else if(rightAngle - 90 < -ANGLE_TOLERANCE)  {
       incrementRotateRight();
     }
     else  {
@@ -478,30 +505,30 @@ void driveToRampUpdate() {
 void getOnRampUpdate() {
     getPR();
     if (roll < -ROLL_TOLERANCE) {
-        for (i = 0; i < 100; i++) {
+        for (int i = 0; i < 100; i++) {
             incrementBackward();
         }
-        for (i = 0; i < 50; i++) {
+        for (int i = 0; i < 50; i++) {
             incrementRotateRight();
         }
-        for (i = 0; i < 100; i++) {
+        for (int i = 0; i < 100; i++) {
             incrementForward();
         }
-        for (i = 0; i < 50; i++) {
+        for (int i = 0; i < 50; i++) {
             incrementRotateLeft();
         }
     }
     else if (roll > ROLL_TOLERANCE) {
-        for (i = 0; i < 100; i++) {
+        for (int i = 0; i < 100; i++) {
             incrementBackward();
         }
-        for (i = 0; i < 50; i++) {
+        for (int i = 0; i < 50; i++) {
             incrementRotateLeft();
         }
-        for (i = 0; i < 100; i++) {
+        for (int i = 0; i < 100; i++) {
             incrementForward();
         }
-        for (i = 0; i < 50; i++) {
+        for (int i = 0; i < 50; i++) {
             incrementRotateRight();
         }
     }
@@ -548,29 +575,29 @@ void goDownRampUpdate() {
 }
 
 void findBaseLeg1Update() {
-    if (frontSensorsNewData) {
-        updateSonar(&uSFront);
-    }
-    if (rightSensorsNewData) {
-        updateSonar(&uSRight);
-    }
-    if (leftSensorsNewData) {
-        updateSonar(&uSLeft);
-    }
-    if (uSLeft.distance < SEARCH_EXPECTED_MAX_DISTANCE) {
+    updateSonar(&USPairs[USPairDirLeft]);
+    updateSonar(&USPairs[USPairDirFront]);
+    updateSonar(&USPairs[USPairDirRight]);
+
+    float leftDistance = USPairs[USPairDirLeft].distance;
+    float frontDistance = USPairs[USPairDirFront].distance;
+    float rightDistance = USPairs[USPairDirRight].distance;
+    float rightAngle = USPairs[USPairDirRight].angle;
+
+    if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE) {
         // Trigger state transition. Use a proper enum for this when time permits.
         currentState = 9;
     }
-    else if (uSFront.distance < SEARCH_SPACING) {
+    else if (frontDistance < SEARCH_SPACING) {
         // Trigger state transition. Use a proper enum for this when time permits.
         prevState = currentState;
         currentState = 1;
     }
     else {
-        if ((uSRight.distance < (DRIVE_TO_WALL_REFERENCE_DISTANCE - DISTANCE_TOLERANCE)) && (uSRight.angleFiltered < ANGLE_TOLERANCE)) {
+        if ((rightDistance < (DRIVE_TO_WALL_REFERENCE_DISTANCE - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
             incrementRotateLeft();
         }
-        else if ((uSRight.distance > (DRIVE_TO_WALL_REFERENCE_DISTANCE + DISTANCE_TOLERANCE)) && (uSRight.angleFiltered > ANGLE_TOLERANCE)) {
+        else if ((rightDistance > (DRIVE_TO_WALL_REFERENCE_DISTANCE + DISTANCE_TOLERANCE)) && (rightAngle > ANGLE_TOLERANCE)) {
             incrementRotateRight();
         }
         else {
@@ -580,28 +607,28 @@ void findBaseLeg1Update() {
 }
 
 void findBaseLeg2Update() {
-    if (frontSensorsNewData) {
-        updateSonar(&uSFront);
-    }
-    if (rightSensorsNewData) {
-        updateSonar(&uSRight);
-    }
-    if (leftSensorsNewData) {
-        updateSonar(&uSLeft);
-    }
-    if (uSLeft.distance < SEARCH_EXPECTED_MAX_DISTANCE) {
+    updateSonar(&USPairs[USPairDirLeft]);
+    updateSonar(&USPairs[USPairDirFront]);
+    updateSonar(&USPairs[USPairDirRight]);
+
+    float leftDistance = USPairs[USPairDirLeft].distance;
+    float frontDistance = USPairs[USPairDirFront].distance;
+    float rightDistance = USPairs[USPairDirRight].distance;
+    float rightAngle = USPairs[USPairDirRight].angle;
+
+    if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE) {
         // Trigger state transition. Use a proper enum for this when time permits.
         currentState = 9;
     }
-    else if (uSFront.distance < SEARCH_SPACING) {
+    else if (frontDistance < SEARCH_SPACING) {
         // Trigger state transition. Use a proper enum for this when time permits.
         currentState = 1;
     }
     else {
-        if ((uSRight.distance < (SEARCH_SPACING - DISTANCE_TOLERANCE)) && (uSRight.angleFiltered < ANGLE_TOLERANCE)) {
+        if ((rightDistance < (SEARCH_SPACING - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
             incrementRotateLeft();
         }
-        else if ((uSRight.distance > (SEARCH_SPACING + DISTANCE_TOLERANCE)) && (uSRight.angleFiltered > ANGLE_TOLERANCE)) {
+        else if ((rightDistance > (SEARCH_SPACING + DISTANCE_TOLERANCE)) && (rightAngle > ANGLE_TOLERANCE)) {
             incrementRotateRight();
         }
         else {
@@ -611,9 +638,9 @@ void findBaseLeg2Update() {
 }
 
 void driveToBaseUpdate() {
-    
+
 }
 
-void idleUpdate {
+void idleUpdate () {
     delay(1000);
 }
