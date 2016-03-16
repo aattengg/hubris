@@ -395,17 +395,16 @@ void getPR()
     fZg = az * alpha + (fZg * (1.0 - alpha));
 
     //Roll & Pitch Equations
-    double roll  = (atan2(-fYg, fZg)*180.0)/M_PI;
-    double pitch = (atan2(fXg, sqrt(fYg*fYg + fZg*fZg))*180.0)/M_PI;
+    pitch  = (atan2(-fYg, fZg)*180.0)/M_PI;
+    roll = (atan2(fXg, sqrt(fYg*fYg + fZg*fZg))*180.0)/M_PI;
 
-    // display tab-separated pitch/roll/yaw values
+    // display tab-separated pitch/roll values
 
 /*
-    Serial.print("a/g:\t");
+    Serial.print("pitch/roll:\t");
     Serial.print(pitch); Serial.print("\t");
     Serial.println(roll);
     */
-    //Serial.println(yaw);
 }
 
 void runFSM()
