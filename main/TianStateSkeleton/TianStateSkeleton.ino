@@ -10,7 +10,19 @@ const float ANGLE_TOLERANCE = 10;
 const unsigned int SEARCH_SPACING = 30;
 const unsigned int SEARCH_EXPECTED_MAX_DISTANCE = 80;
 
+
 /** this is the definitions of the states that our program uses */
+void driveToWallUpdate();
+void rotateLeft90Update();
+void driveToRampUpdate();
+void getOnRampUpdate();
+void goUpRampUpdate();
+void onFlatRampUpdate();
+void goDownRampUpdate();
+void findBaseLeg1Update();
+void findBaseLeg2Update();
+void driveToBaseUpdate();
+void idleUpdate();
 State driveToWall = State(driveToWallUpdate);  //first state where we drive To the wall
 State rotateLeft90 = State(rotateLeft90Update);  //state where robot rotates left 90 degrees
 State driveToRamp = State(driveToRampUpdate);  //keeps itself aligned to the ramp as it drives closer
@@ -24,7 +36,7 @@ State driveToBase = State(driveToBaseUpdate); //probably not needed since findBa
 State idle = State(idleUpdate);
 
 /** the state machine controls which of the states get attention and execution time */
-FSM stateMachine = FSM(driveToWall); //initialize state machine, start in state: noop
+FSM stateMachine = FSM(driveToWall); //initialize state machine
 
 //counter variable
 static byte currentState = 0; //increment the state in each state function? (we could try something else too)
@@ -53,7 +65,6 @@ void loop(){
       case 9: stateMachine.transitionTo(driveToBase); break;
       case 10: stateMachine.transitionTo(idle); break;
     }
-  }
   //THIS LINE IS CRITICAL
   //do not remove the stateMachine.update() call, it is what makes this program 'tick'
   stateMachine.update();

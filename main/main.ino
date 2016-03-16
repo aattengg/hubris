@@ -144,6 +144,17 @@ const unsigned int SEARCH_SPACING = 30;
 const unsigned int SEARCH_EXPECTED_MAX_DISTANCE = 80;
 
 /** this is the definitions of the states that our program uses */
+void driveToWallUpdate();
+void rotateLeft90Update();
+void driveToRampUpdate();
+void getOnRampUpdate();
+void goUpRampUpdate();
+void onFlatRampUpdate();
+void goDownRampUpdate();
+void findBaseLeg1Update();
+void findBaseLeg2Update();
+void driveToBaseUpdate();
+void idleUpdate();
 State driveToWall = State(driveToWallUpdate);  //first state where we drive To the wall
 State rotateLeft90 = State(rotateLeft90Update);  //state where robot rotates left 90 degrees
 State driveToRamp = State(driveToRampUpdate);  //keeps itself aligned to the ramp as it drives closer
@@ -390,7 +401,6 @@ void runFSM()
       case 9: stateMachine.transitionTo(driveToBase); break;
       case 10: stateMachine.transitionTo(idle); break;
     }
-  }
   //THIS LINE IS CRITICAL
   //do not remove the stateMachine.update() call, it is what makes this program 'tick'
   stateMachine.update();

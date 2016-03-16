@@ -30,7 +30,7 @@
 #ifndef FINITESTATEMACHINE_H
 #define FINITESTATEMACHINE_H
 
-#include <WProgram.h>
+#include <Arduino.h>
 
 #define NO_ENTER (0)
 #define NO_UPDATE (0)
