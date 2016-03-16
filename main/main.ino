@@ -101,7 +101,10 @@ struct uSPair_t {
   unsigned int uS2Buffer2 = 0;
   float uSSepDist;
   float distToCenter;
-  float angle;
+  int angleCurrent;
+  int angleBuffer1 = 0;
+  int angleBuffer2 = 0;
+  int angleFiltered;
   unsigned int distance;
 };
 
@@ -264,14 +267,19 @@ void updateSonar(uSPair_t* uSPair) {
     uSPair->uS2Buffer2 = uSPair->uS2Buffer1;
     uSPair->uS2Buffer1 = uSPair->uS2Current;
 
-    uSPair->angle = asin(int(uSPair->uS1Filtered - uSPair->uS2Filtered) / (US_ROUNDTRIP_CM * uSPair->uSSepDist));
-    uSPair->distance = (uSPair->uS1Filtered + uSPair->uS2Filtered)/(US_ROUNDTRIP_CM * 2.0) + uSPair->distToCenter * sin(uSPair->angle) + 0.5;
+    uSPair->angleCurrent = (int)(180 / 3.14 * asin(int(uSPair->uS1Filtered - uSPair->uS2Filtered) / (US_ROUNDTRIP_CM * uSPair->uSSepDist)));
+    uSPair->distance = (uSPair->uS1Filtered + uSPair->uS2Filtered)/(US_ROUNDTRIP_CM * 2.0) + uSPair->distToCenter * sin(uSPair->angleCurrent) + 0.5;
+
+    uSPair->angleFiltered = median3Filter(uSPair->angleCurrent, uSPair->angleBuffer1, uSPair->angleBuffer2);
+
+    uSPair->angleBuffer2 = uSPair->angleBuffer1;
+    uSPair->angleBuffer1 = uSPair->angleCurrent;
 }
 
 void printSonarData(uSPair_t uSPair) {
   
     Serial.print("Angle: ");
-    Serial.println(180 / 3.14 * uSPair.angle);
+    Serial.println(uSPair.angleFiltered);
     Serial.print("Distance: ");
     Serial.print(uSPair.distance);
     Serial.println("cm");
@@ -286,7 +294,7 @@ void printSonarData(uSPair_t uSPair) {
 }
 
 // Data processing helper functions.
-unsigned long median3Filter(unsigned long a, unsigned long b, unsigned long c) {
+int median3Filter(int a, int b, int c) {
     if (a >= b)
     {
       if (a <= c)
