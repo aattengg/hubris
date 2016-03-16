@@ -25,7 +25,7 @@
 #include <NewPing.h>
 #include <Wire.h>
 #include <I2Cdev.h>
-#include <MPU6050_6Axis_MotionApps20.h>
+#include <MPU6050.h>
 
 /********************
  * Robot Dimensions *
@@ -109,32 +109,17 @@ struct uSPair_t {
 };
 
 // Define Address for IMU
-MPU6050 mpu; //0x68
+MPU6050 accelgyro; //0x68
+
+int16_t ax, ay, az;
+int16_t gx, gy, gz;
+double fXg = 0;
+double fYg = 0;
+double fZg = 0;
+const float alpha = 0.5;
 
 #define LED_PIN 13 //IMU LED
 bool blinkState = false;
-
-// MPU control/status vars
-bool dmpReady = false;  // set true if DMP init was successful
-uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
-uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
-uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
-uint16_t fifoCount;     // count of all bytes currently in FIFO
-uint8_t fifoBuffer[64]; // FIFO storage buffer
-
-//IMU orientation/motion vars
-Quaternion q;           // [w, x, y, z]         quaternion container
-VectorFloat gravity;    // [x, y, z]            gravity vector
-float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
-
-// ================================================================
-// ===               INTERRUPT DETECTION ROUTINE                ===
-// ================================================================
-
-volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
-void dmpDataReady() {
-    mpuInterrupt = true;
-}
 
 uSPair_t uSFront;
 uSPair_t uSLeft;
@@ -145,22 +130,24 @@ void setup() {
   Serial.begin(115200);   // set up Serial library at 9600 bps
   AFMSbot.begin();      // Start the bottom shield
   AFMStop.begin();      // Start the top shield
-  TWBR = ((F_CPU /200000l) - 16) / 2; // Change the i2c clock to 200KHz so motor can run faster (400KHz is fastest it can go)
   initIMU();
+  TWBR = ((F_CPU /200000l) - 16) / 2; // Change the i2c clock to 200KHz so motor can run faster (400KHz is fastest it can go)
   initSonar();
 }
 
 int i;
 void loop() {
-    updateSonar(&uSFront);
-    updateSonar(&uSLeft);
-    updateSonar(&uSRight);
-
-    //printSonarData(uSFront);
-    //printSonarData(uSLeft);
-    printSonarData(uSRight);
+//    updateSonar(&uSFront);
+//    updateSonar(&uSLeft);
+//    updateSonar(&uSRight);
+//
+//    //printSonarData(uSFront);
+//    //printSonarData(uSLeft);
+//    printSonarData(uSRight);
 
     getYPR();
+    for(int i=0;i<100;i++)
+      incrementForward();
 }
 
 void asyncGoForward(int steps, int delayMs){
@@ -337,97 +324,31 @@ void initIMU()
   // join I2C bus (I2Cdev library doesn't do this automatically)
     Wire.begin();
 
-    // initialize serial communication
-    Serial.begin(115200);
-    while (!Serial); // wait for Leonardo enumeration, others continue immediately
-
     // initialize device
-    mpu.initialize();
-
-    // load and configure the DMP
-    devStatus = mpu.dmpInitialize();
-
-    // supply your own gyro offsets here, scaled for min sensitivity
-    mpu.setXGyroOffset(220);
-    mpu.setYGyroOffset(76);
-    mpu.setZGyroOffset(-85);
-    mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
-
-    // make sure it worked (returns 0 if so)
-    if (devStatus == 0) {
-        // turn on the DMP, now that it's ready
-        mpu.setDMPEnabled(true);
-
-        // enable Arduino interrupt detection
-        attachInterrupt(0, dmpDataReady, RISING);
-        mpuIntStatus = mpu.getIntStatus();
-
-        // set our DMP Ready flag so the main loop() function knows it's okay to use it
-        dmpReady = true;
-
-        // get expected DMP packet size for later comparison
-        packetSize = mpu.dmpGetFIFOPacketSize();
-    } else {
-        // ERROR!
-        // 1 = initial memory load failed
-        // 2 = DMP configuration updates failed
-        // (if it's going to break, usually the code will be 1)
-        Serial.print(F("DMP Initialization failed (code "));
-        Serial.print(devStatus);
-        Serial.println(F(")"));
-    }
+    accelgyro.initialize();
 
     // configure LED for output
     pinMode(LED_PIN, OUTPUT);
 }
 
 void getYPR()
-{
-  // if programming failed, don't try to do anything
-    if (!dmpReady) return;
-
-    // reset interrupt flag and get INT_STATUS byte
-    mpuInterrupt = false;
-    mpuIntStatus = mpu.getIntStatus();
-
-    // get current FIFO count
-    fifoCount = mpu.getFIFOCount();
-
-    // check for overflow (this should never happen unless our code is too inefficient)
-    if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
-        // reset so we can continue cleanly
-        mpu.resetFIFO();
-        Serial.println(F("FIFO overflow!"));
-
-    // otherwise, check for DMP data ready interrupt (this should happen frequently)
-    } else if (mpuIntStatus & 0x02) {
-        // wait for correct available data length, should be a VERY short wait
-        while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
-
-        // read a packet from FIFO
-        mpu.getFIFOBytes(fifoBuffer, packetSize);
-
-        // track FIFO count here in case there is > 1 packet available
-        // (this lets us immediately read more without waiting for an interrupt)
-        fifoCount -= packetSize;
-
-        // display Euler angles in degrees
-        mpu.dmpGetQuaternion(&q, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-        /*
-        Serial.print("ypr\t");
-        Serial.print(ypr[0] * 180/M_PI);
-        Serial.print("\t");
-        Serial.print(ypr[1] * 180/M_PI);
-        Serial.print("\t");
-        Serial.println(ypr[2] * 180/M_PI);
-        */
-
-        // blink LED to indicate activity
-        blinkState = !blinkState;
-        digitalWrite(LED_PIN, blinkState);
-        delay(1);
-    }
+{     
+    // read raw accel/gyro measurements from device
+    accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+ 
+    //Low Pass Filter
+    fXg = ax * alpha + (fXg * (1.0 - alpha));
+    fYg = ay * alpha + (fYg * (1.0 - alpha));
+    fZg = az * alpha + (fZg * (1.0 - alpha));
+ 
+    //Roll & Pitch Equations
+    double roll  = (atan2(-fYg, fZg)*180.0)/M_PI;
+    double pitch = (atan2(fXg, sqrt(fYg*fYg + fZg*fZg))*180.0)/M_PI;
+    
+    // display tab-separated pitch/roll/yaw values
+    Serial.print("a/g:\t");
+    Serial.print(pitch); Serial.print("\t");
+    Serial.println(roll);
+    //Serial.println(yaw);
 }
 
