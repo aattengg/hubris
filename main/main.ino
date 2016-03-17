@@ -139,7 +139,7 @@ const unsigned int DISTANCE_TOLERANCE = 0;
 const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 36;
 const unsigned int DRIVE_TO_WALL_REFERENCE_DISTANCE = 25;
 const float PITCH_TOLERANCE = 15;
-const float ROLL_TOLERANCE = 1;
+const float ROLL_TOLERANCE = 0.75;
 const float ANGLE_TOLERANCE = 3*3.14159/180;
 const float BIG_ANGLE_TOLERANCE = 7*3.14/180;
 const unsigned int SEARCH_SPACING = 30;
@@ -261,6 +261,14 @@ void incrementRotateRight() {
     myStepperBL->onestep(BACKWARD, DOUBLE);
     myStepperBR->onestep(BACKWARD, DOUBLE);
 }
+
+void releaseSteppers() {
+    myStepperFL->release();
+    myStepperFR->release();
+    myStepperBL->release();
+    myStepperBR->release();
+}
+
 
 // Ultrasonic sensor helper functions.
 void initSonar() {
@@ -526,7 +534,7 @@ void rotateLeft45FirstUpdate() {
             incrementRotateLeft();
         }
     }*/
-    if (stateInternalCounter < 160) { // 150 is fairly reliable
+    if (stateInternalCounter < 180) { // 150 is fairly reliable
         incrementRotateLeft();
         stateInternalCounter++;
     }
@@ -534,7 +542,7 @@ void rotateLeft45FirstUpdate() {
         stateInternalCounter = 0;
             // Trigger state transition. Use a proper enum for this when time permits.
             if (prevState == 0) {
-                currentState = 2;
+                currentState = 3;
             }
             else {  // prevState == 7 || prevState == 8;
                 currentState = 8;
@@ -753,10 +761,13 @@ void getOnRampUpdate() {
         for (int i = 0; i < 20; i++) {
             incrementRotateLeft();
         }
+        delay(500);
+        getPR();
+        rollReference = roll;
         for (int i = 0; i < 100; i++) {
             incrementForward();
         }
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 40; i++) {
             incrementRotateRight();
         }
         for (int i = 0; i < 100; i++) {
@@ -773,19 +784,23 @@ void getOnRampUpdate() {
             stateInternalCounter++;
         }
         else {
-        for (int i = 0; i < 150; i++) {
+        releaseSteppers();   
+        for (int i = 0; i < 200; i++) {
             incrementBackward();
         }
         for (int i = 0; i < 20; i++) {
             incrementRotateRight();
         }
+        delay(500);
+        getPR();
+        rollReference = roll;
         for (int i = 0; i < 100; i++) {
             incrementForward();
         }
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 40; i++) {
             incrementRotateLeft();
         }
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 150; i++) {
             incrementForward();
         }
             stateInternalCounter = 0;
@@ -807,6 +822,7 @@ void getOnRampUpdate() {
             stateInternalCounter2++;
         }
         else {
+            releaseSteppers();
             stateInternalCounter = 0;
             stateInternalCounter2 = 0;
             // Trigger state transition. Use a proper enum for this when time permits.
@@ -821,7 +837,7 @@ void goUpRampUpdate() {
         if (stateInternalCounter > 0) {
             stateInternalCounter = 0;
         }
-        for (int incrCount = 0; incrCount < 1000; incrCount++) {
+        for (int incrCount = 0; incrCount < 2000; incrCount++) {
             incrementForward();
         }
     }
@@ -865,12 +881,12 @@ void goDownRampUpdate() {
         if (stateInternalCounter > 0) {
             stateInternalCounter = 0;
         }
-        for (int incrCount = 0; incrCount < 1000; incrCount++) {
+        for (int incrCount = 0; incrCount < 2000; incrCount++) {
             incrementForward();
         }
     }
     else {
-        if (stateInternalCounter < 100) {
+        if (stateInternalCounter < 10) {
             stateInternalCounter++;
         }
         else {
