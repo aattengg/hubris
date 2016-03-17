@@ -135,13 +135,17 @@ volatile bool interrupt = false;
 
 //State Machine Constants
 const unsigned int DISTANCE_TOLERANCE = 2;
-const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 15;
-const unsigned int DRIVE_TO_WALL_REFERENCE_DISTANCE = 15;
-const float PITCH_TOLERANCE = 10;
-const float ROLL_TOLERANCE = 5;
-const float ANGLE_TOLERANCE = 10;
+const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 25;
+const unsigned int DRIVE_TO_WALL_REFERENCE_DISTANCE = 25;
+const float PITCH_TOLERANCE = 15;
+const float ROLL_TOLERANCE = 15;
+const float ANGLE_TOLERANCE = 4*3.14/180;
 const unsigned int SEARCH_SPACING = 30;
 const unsigned int SEARCH_EXPECTED_MAX_DISTANCE = 80;
+
+// State Machine Variables
+unsigned int stateInternalCounter = 0;
+bool stateInternalFlag = false;
 
 /** this is the definitions of the states that our program uses */
 void driveToWallUpdate();
@@ -195,8 +199,6 @@ void loop() {
             }
         }
     }
-    getPR();
-    incrementForward();
     runFSM();
 }
 
@@ -353,6 +355,7 @@ void initIMU()
 
     // initialize device
     accelgyro.initialize();
+    accelgyro.setDLPFMode(MPU6050_DLPF_BW_5);
 
     // configure LED for output
     pinMode(LED_PIN, OUTPUT);
@@ -414,11 +417,19 @@ void driveToWallUpdate() {
     float rightAngle = USPairs[USPairDirRight].angle;
 
     if (frontDistance < DRIVE_TO_WALL_DESIRED_DISTANCE) {
-        // Trigger state transition. Use a proper enum for this when time permits.
-        prevState = currentState;
-        currentState = 1;
+        // The ultrasonic appears to read constant distance of 10 cm for some time after initialization.
+        // Wait until the front sees a value that indicates it should not yet transition before beginning proper operation.
+        if (stateInternalFlag) {
+            stateInternalFlag = false;
+            // Trigger state transition. Use a proper enum for this when time permits.
+            prevState = currentState;
+            currentState = 1;
+        }
     }
     else {
+        if (!stateInternalFlag) {
+            stateInternalFlag = true;
+        }
         if ((rightDistance < (DRIVE_TO_WALL_REFERENCE_DISTANCE - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
             incrementRotateLeft();
         }
@@ -433,21 +444,41 @@ void driveToWallUpdate() {
 
 //change name?
 void rotateLeft90Update() {
-    updateSonar(&USPairs[USPairDirRight]);
+    /*updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
 
     //will require low angle tolerance and must avoid initial right wall (utilize front sensors as well?)
-    if (abs(rightAngle - 90) > ANGLE_TOLERANCE) {
+    if ((abs(rightAngle) > ANGLE_TOLERANCE)) {
+        if (!stateInternalFlag) {
+            stateInternalFlag = true;
+        }
         incrementRotateLeft();
     }
     else {
-        // Trigger state transition. Use a proper enum for this when time permits.
-        if (prevState == 0) {
-            currentState = 2;
+        if (stateInternalFlag) {
+            stateInternalFlag = false;
+            // Trigger state transition. Use a proper enum for this when time permits.
+            if (prevState == 0) {
+                currentState = 2;
+            }
+            else {  // prevState == 7 || prevState == 8;
+                currentState = 8;
+            }
         }
-        else {  // prevState == 7 || prevState == 8;
-            currentState = 8;
-        }
+    }*/
+    if (stateInternalCounter < 250) {
+        incrementRotateLeft();
+        stateInternalCounter++;
+    }
+    else {
+        stateInternalCounter = 0;
+            // Trigger state transition. Use a proper enum for this when time permits.
+            if (prevState == 0) {
+                currentState = 2;
+            }
+            else {  // prevState == 7 || prevState == 8;
+                currentState = 8;
+            }
     }
 }
 
@@ -464,7 +495,7 @@ void driveToRampUpdate() {
     }
     else  {
       getPR();
-      if (pitch > (90 - PITCH_TOLERANCE)) {
+      if (pitch > (99 - PITCH_TOLERANCE)) {
           incrementForward();
       }
       else {
@@ -477,31 +508,31 @@ void driveToRampUpdate() {
 //unsure of whats going on here
 void getOnRampUpdate() {
     getPR();
-    if (roll < -ROLL_TOLERANCE) {
-        for (int i = 0; i < 100; i++) {
+    if (roll < -ROLL_TOLERANCE - 1.5) {
+        for (int i = 0; i < 70; i++) {
             incrementBackward();
         }
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 20; i++) {
             incrementRotateRight();
         }
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 70; i++) {
             incrementForward();
         }
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 20; i++) {
             incrementRotateLeft();
         }
     }
-    else if (roll > ROLL_TOLERANCE) {
-        for (int i = 0; i < 100; i++) {
+    else if (roll > ROLL_TOLERANCE - 1.5) {
+        for (int i = 0; i < 70; i++) {
             incrementBackward();
         }
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 20; i++) {
             incrementRotateLeft();
         }
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 70; i++) {
             incrementForward();
         }
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 20; i++) {
             incrementRotateRight();
         }
     }
@@ -516,7 +547,7 @@ void getOnRampUpdate() {
 
 void goUpRampUpdate() {
     getPR();
-    if (pitch < (90 - PITCH_TOLERANCE)) {
+    if (pitch < (99 - PITCH_TOLERANCE)) {
         incrementForward();
     }
     else {
@@ -527,7 +558,7 @@ void goUpRampUpdate() {
 
 void onFlatRampUpdate() {
     getPR();
-    if (pitch < (90 + PITCH_TOLERANCE)) {
+    if (pitch < (99 + PITCH_TOLERANCE)) {
         incrementForward();
     }
     else {
@@ -538,7 +569,7 @@ void onFlatRampUpdate() {
 
 void goDownRampUpdate() {
     getPR();
-    if (pitch > (90 + PITCH_TOLERANCE)) {
+    if (pitch > (99 + PITCH_TOLERANCE)) {
         incrementForward();
     }
     else {
