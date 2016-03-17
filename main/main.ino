@@ -405,6 +405,7 @@ void runFSM()
   stateMachine.update();
 }
 
+//State 0
 void driveToWallUpdate() {
     updateSonar(&USPairs[USPairDirFront]);
     updateSonar(&USPairs[USPairDirRight]);
@@ -431,7 +432,7 @@ void driveToWallUpdate() {
     }
 }
 
-//change name?
+//State 1
 void rotateLeft90Update() {
     updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
@@ -451,6 +452,7 @@ void rotateLeft90Update() {
     }
 }
 
+//State 2
 void driveToRampUpdate() {
     updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
@@ -474,7 +476,7 @@ void driveToRampUpdate() {
     }
 }
 
-//unsure of whats going on here
+//State 3
 void getOnRampUpdate() {
     getPR();
     if (roll < -ROLL_TOLERANCE) {
@@ -514,6 +516,7 @@ void getOnRampUpdate() {
     }
 }
 
+//State 4
 void goUpRampUpdate() {
     getPR();
     if (pitch < (90 - PITCH_TOLERANCE)) {
@@ -525,6 +528,7 @@ void goUpRampUpdate() {
     }
 }
 
+//State 5
 void onFlatRampUpdate() {
     getPR();
     if (pitch < (90 + PITCH_TOLERANCE)) {
@@ -536,6 +540,7 @@ void onFlatRampUpdate() {
     }
 }
 
+//State 6
 void goDownRampUpdate() {
     getPR();
     if (pitch > (90 + PITCH_TOLERANCE)) {
@@ -547,6 +552,7 @@ void goDownRampUpdate() {
     }
 }
 
+//State 7
 void findBaseLeg1Update() {
     updateSonar(&USPairs[USPairDirLeft]);
     updateSonar(&USPairs[USPairDirFront]);
@@ -579,6 +585,7 @@ void findBaseLeg1Update() {
     }
 }
 
+//State 8
 void findBaseLeg2Update() {
     updateSonar(&USPairs[USPairDirLeft]);
     updateSonar(&USPairs[USPairDirFront]);
@@ -610,10 +617,12 @@ void findBaseLeg2Update() {
     }
 }
 
+//State 9
 void driveToBaseUpdate() {
 
 }
 
+//State 10
 void idleUpdate () {
     delay(1000);
 }
