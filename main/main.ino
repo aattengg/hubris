@@ -135,7 +135,7 @@ volatile bool interrupt = false;
 
 //State Machine Constants
 const unsigned int DISTANCE_TOLERANCE = 0;
-const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 36;
+const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 35;
 const unsigned int DRIVE_TO_WALL_REFERENCE_DISTANCE = 25;
 const float PITCH_TOLERANCE = 15;
 const float ROLL_TOLERANCE = 0.75;
@@ -486,7 +486,7 @@ void driveToWallUpdate() {
     }
 }
 
-//change name?
+//state 1
 void rotateLeft45FirstUpdate() {
     /*updateSonar(&USPairs[USPairDirRight]);
 =======
@@ -536,7 +536,7 @@ void rotateLeft90Update() {
             incrementRotateLeft();
         }
     }*/
-    if (stateInternalCounter < 180) { // 150 is fairly reliable
+    if (stateInternalCounter < 160) { // 150 is fairly reliable
         incrementRotateLeft();
         stateInternalCounter++;
     }
@@ -552,6 +552,7 @@ void rotateLeft90Update() {
     }
 }
 
+//state 2
 void rotateLeft45SecondUpdate() {
     /*updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
@@ -670,7 +671,7 @@ void rotateLeft45SecondUpdate() {
     }
 }
 
-//State 2
+//State 3
 void driveToRampUpdate() {
     /*updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
@@ -754,11 +755,11 @@ void driveToRampUpdate() {
     //}
 }
 
-//State 3
+//State 4
 void getOnRampUpdate() {
     getPR();
-    Serial.print("Roll: ");
-    Serial.println(roll);
+//    Serial.print("Roll: ");
+//    Serial.println(roll);
     if (roll < -ROLL_TOLERANCE + rollReference) {
         if (stateInternalCounter2 > 0) {
             stateInternalCounter2 = 0;
@@ -797,7 +798,7 @@ void getOnRampUpdate() {
         }
         else {
         releaseSteppers();   
-        for (int i = 0; i < 200; i++) {
+        for (int i = 0; i < 150; i++) {
             incrementBackward();
         }
         for (int i = 0; i < 20; i++) {
@@ -812,7 +813,7 @@ void getOnRampUpdate() {
         for (int i = 0; i < 40; i++) {
             incrementRotateLeft();
         }
-        for (int i = 0; i < 150; i++) {
+        for (int i = 0; i < 100; i++) {
             incrementForward();
         }
             stateInternalCounter = 0;
@@ -843,7 +844,7 @@ void getOnRampUpdate() {
     }
 }
 
-//State 4
+//State 5
 void goUpRampUpdate() {
     getPR();
     if (pitch < (99 - PITCH_TOLERANCE)) {
@@ -866,7 +867,7 @@ void goUpRampUpdate() {
     }
 }
 
-//State 5
+//State 6
 void onFlatRampUpdate() {
     getPR();
     if (pitch < (99 + PITCH_TOLERANCE)) {
@@ -889,7 +890,7 @@ void onFlatRampUpdate() {
     }
 }
 
-//State 6
+//State 7
 void goDownRampUpdate() {
     getPR();
     if (pitch > (99 + PITCH_TOLERANCE)) {
@@ -912,7 +913,7 @@ void goDownRampUpdate() {
     }
 }
 
-//State 7
+//State 8
 void findBaseUpdate() {
     updateSonar(&USPairs[USPairDirLeft]);
     updateSonar(&USPairs[USPairDirFront]);
@@ -946,7 +947,7 @@ void findBaseUpdate() {
     }
 }
 
-//State 8
+//State 9
 void driveToBaseUpdate() {
     updateSonar(&USPairs[USPairDirFront]);
     
@@ -976,7 +977,7 @@ void driveToBaseUpdate() {
 //    }
 }
 
-//State 9
+//State 10
 void idleUpdate () {
     delay(1000);
 }
