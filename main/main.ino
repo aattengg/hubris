@@ -576,31 +576,19 @@ void findBaseUpdate() {
         prevState = currentState;
         currentState = 1;
     }
-    //move to the right distance away from the wall
-    else if(rightDistance < (SEARCH_SPACING - DISTANCE_TOLERANCE))
-    {
-      if(rightAngle < ANGLE_TOLERANCE)
-        incrementRotateLeft();
-      incrementForward();
-    }
-    else if(rightDistance > (SEARCH_SPACING - DISTANCE_TOLERANCE))
-    {
-      if(rightAngle > ANGLE_TOLERANCE)
-        incrementRotateRight();
-      incrementForward();
-    }
     //keep parallel to the right wall and drive straight
     else {
-//        if ((rightDistance < (SEARCH_SPACING - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
-//            incrementRotateLeft();
-//        }
-//        else if ((rightDistance > (SEARCH_SPACING + DISTANCE_TOLERANCE)) && (rightAngle > ANGLE_TOLERANCE)) {
-//            incrementRotateRight();
-//        }
-//        else {
-//            incrementForward();
-//        }
-          incrementForward();
+        if ((rightDistance < (SEARCH_SPACING - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
+            for(int i = 0; i < 10; i++)
+              incrementRotateLeft();
+        }
+        else if ((rightDistance > (SEARCH_SPACING + DISTANCE_TOLERANCE)) && (rightAngle > ANGLE_TOLERANCE)) {
+            for(int i = 0; i < 10; i++)
+              incrementRotateRight();
+        }
+        else {
+            incrementForward();
+        }
     }
 }
 
@@ -613,9 +601,15 @@ void driveToBaseUpdate() {
     if(prevState == 8)
         currentState = 1;
     if (frontAngle > ANGLE_TOLERANCE)
-        incrementRotateRight();
+    {
+        for(int i = 0; i < 10; i++)
+          incrementRotateRight();
+    }
     else if(frontAngle < ANGLE_TOLERANCE)
-        incrementRotateLeft();
+    {
+        for(int i = 0; i < 10; i++)
+          incrementRotateLeft();
+    }
     
     incrementForward();
 }
