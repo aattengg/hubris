@@ -151,8 +151,7 @@ void getOnRampUpdate();
 void goUpRampUpdate();
 void onFlatRampUpdate();
 void goDownRampUpdate();
-void findBaseLeg1Update();
-void findBaseLeg2Update();
+void findBaseUpdate();
 void driveToBaseUpdate();
 void idleUpdate();
 State driveToWall = State(driveToWallUpdate);  //first state where we drive To the wall
@@ -162,8 +161,7 @@ State getOnRamp = State(getOnRampUpdate); //get the wheels onto the ramp itself 
 State goUpRamp = State(goUpRampUpdate); //pretty much just driving straight lol
 State onFlatRamp = State(onFlatRampUpdate); //still just driving straight (why is this even a state)
 State goDownRamp = State(goDownRampUpdate); //see above -_-
-State findBaseLeg1 = State(findBaseLeg1Update); //drive around and look for the base
-State findBaseLeg2 = State(findBaseLeg2Update);
+State findBase = State(findBaseUpdate); //drive around and look for the base
 State driveToBase = State(driveToBaseUpdate); //probably not needed since findBase should totally cover it
 State idle = State(idleUpdate);
 
@@ -395,10 +393,9 @@ void runFSM()
       case 4: stateMachine.transitionTo(goUpRamp); break;
       case 5: stateMachine.transitionTo(onFlatRamp); break;
       case 6: stateMachine.transitionTo(goDownRamp); break;
-      case 7: stateMachine.transitionTo(findBaseLeg1); break;
-      case 8: stateMachine.transitionTo(findBaseLeg2); break;
-      case 9: stateMachine.transitionTo(driveToBase); break;
-      case 10: stateMachine.transitionTo(idle); break;
+      case 7: stateMachine.transitionTo(findBase); break;
+      case 8: stateMachine.transitionTo(driveToBase); break;
+      case 9: stateMachine.transitionTo(idle); break;
     }
   //THIS LINE IS CRITICAL
   //do not remove the stateMachine.update() call, it is what makes this program 'tick'
@@ -553,7 +550,7 @@ void goDownRampUpdate() {
 }
 
 //State 7
-void findBaseLeg1Update() {
+void findBaseUpdate() {
     updateSonar(&USPairs[USPairDirLeft]);
     updateSonar(&USPairs[USPairDirFront]);
     updateSonar(&USPairs[USPairDirRight]);
@@ -563,66 +560,51 @@ void findBaseLeg1Update() {
     float rightDistance = USPairs[USPairDirRight].distance;
     float rightAngle = USPairs[USPairDirRight].angle;
 
+    //found the base
     if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE) {
         // Trigger state transition. Use a proper enum for this when time permits.
         currentState = 9;
     }
+    //reached the wall and need to turn left
     else if (frontDistance < SEARCH_SPACING) {
         // Trigger state transition. Use a proper enum for this when time permits.
         prevState = currentState;
         currentState = 1;
     }
+    //move to the right distance away from the wall
+    else if(rightDistance < (SEARCH_SPACING - DISTANCE_TOLERANCE))
+    {
+      if(rightAngle < ANGLE_TOLERANCE)
+        incrementRotateLeft();
+      incrementForward();
+    }
+    else if(rightDistance > (SEARCH_SPACING - DISTANCE_TOLERANCE))
+    {
+      if(rightAngle > ANGLE_TOLERANCE)
+        incrementRotateRight();
+      incrementForward();
+    }
+    //keep parallel to the right wall and drive straight
     else {
-        if ((rightDistance < (DRIVE_TO_WALL_REFERENCE_DISTANCE - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
-            incrementRotateLeft();
-        }
-        else if ((rightDistance > (DRIVE_TO_WALL_REFERENCE_DISTANCE + DISTANCE_TOLERANCE)) && (rightAngle > ANGLE_TOLERANCE)) {
-            incrementRotateRight();
-        }
-        else {
-            incrementForward();
-        }
+//        if ((rightDistance < (SEARCH_SPACING - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
+//            incrementRotateLeft();
+//        }
+//        else if ((rightDistance > (SEARCH_SPACING + DISTANCE_TOLERANCE)) && (rightAngle > ANGLE_TOLERANCE)) {
+//            incrementRotateRight();
+//        }
+//        else {
+//            incrementForward();
+//        }
+          incrementForward();
     }
 }
 
 //State 8
-void findBaseLeg2Update() {
-    updateSonar(&USPairs[USPairDirLeft]);
-    updateSonar(&USPairs[USPairDirFront]);
-    updateSonar(&USPairs[USPairDirRight]);
-
-    float leftDistance = USPairs[USPairDirLeft].distance;
-    float frontDistance = USPairs[USPairDirFront].distance;
-    float rightDistance = USPairs[USPairDirRight].distance;
-    float rightAngle = USPairs[USPairDirRight].angle;
-
-    if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE) {
-        // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 9;
-    }
-    else if (frontDistance < SEARCH_SPACING) {
-        // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 1;
-    }
-    else {
-        if ((rightDistance < (SEARCH_SPACING - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
-            incrementRotateLeft();
-        }
-        else if ((rightDistance > (SEARCH_SPACING + DISTANCE_TOLERANCE)) && (rightAngle > ANGLE_TOLERANCE)) {
-            incrementRotateRight();
-        }
-        else {
-            incrementForward();
-        }
-    }
-}
-
-//State 9
 void driveToBaseUpdate() {
 
 }
 
-//State 10
+//State 9
 void idleUpdate () {
     delay(1000);
 }
