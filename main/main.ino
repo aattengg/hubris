@@ -139,8 +139,8 @@ const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 35;
 const unsigned int DRIVE_TO_WALL_REFERENCE_DISTANCE = 25;
 const float PITCH_TOLERANCE = 15;
 const float ROLL_TOLERANCE = 0.75;
-const float ANGLE_TOLERANCE = 3*3.14159/180;
-const float BIG_ANGLE_TOLERANCE = 7*3.14/180;
+const float ANGLE_TOLERANCE = 3*M_PI/180;
+const float BIG_ANGLE_TOLERANCE = 7*M_PI/180;
 const unsigned int SEARCH_SPACING = 30;
 const unsigned int SEARCH_EXPECTED_MAX_DISTANCE = 80;
 
@@ -329,6 +329,10 @@ void printSonarData(USPair_t *USPair) {
     Serial.print("Distance: ");
     Serial.print(USPair->distance, 4);
     Serial.println("cm");
+    Serial.print("Left Filtered Distance:");
+    Serial.println(USPair->us[0]->filteredDist);
+    Serial.print("Right Filtered Distance:");
+    Serial.println(USPair->us[1]->filteredDist);
     /*
     Serial.println("Anthony Debugs:");
     Serial.println(us0->filteredDist - us1->filteredDist);
@@ -451,6 +455,7 @@ void runFSM()
 
 //State 0
 void driveToWallUpdate() {
+    Serial.println("Driving to wall");
     updateSonar(&USPairs[USPairDirFront]);
     //updateSonar(&USPairs[USPairDirRight]);
 
@@ -488,6 +493,7 @@ void driveToWallUpdate() {
 
 //state 1
 void rotateLeft45FirstUpdate() {
+  Serial.println("Turning Left");
     /*updateSonar(&USPairs[USPairDirRight]);
 =======
 //State 1
@@ -546,7 +552,7 @@ void rotateLeft90Update() {
             if (prevState == 0) {
                 currentState = 3;
             }
-            else {  // prevState == 7 || prevState == 8;
+            else {  //prevState == 8;
                 currentState = 8;
             }
     }
@@ -560,7 +566,7 @@ void rotateLeft45SecondUpdate() {
     //if (!(abs(rightAngle) < ANGLE_TOLERANCE)) {
     //GOOD START HERE
     
-    if (!(abs(rightAngle) < BIG_ANGLE_TOLERANCE + 2*3.14159/180)) {
+    if (!(abs(rightAngle) < BIG_ANGLE_TOLERANCE + 2*M_PI/180)) {
       if (stateInternalCounter2 < 10) {
             stateInternalCounter2++;
         }
@@ -673,6 +679,7 @@ void rotateLeft45SecondUpdate() {
 
 //State 3
 void driveToRampUpdate() {
+  Serial.println("Driving to ramp");
     /*updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
     //double check logic
@@ -757,6 +764,7 @@ void driveToRampUpdate() {
 
 //State 4
 void getOnRampUpdate() {
+    Serial.println("Getting on ramp");
     getPR();
 //    Serial.print("Roll: ");
 //    Serial.println(roll);
@@ -846,12 +854,13 @@ void getOnRampUpdate() {
 
 //State 5
 void goUpRampUpdate() {
+    Serial.println("Going up ramp");
     getPR();
     if (pitch < (99 - PITCH_TOLERANCE)) {
         if (stateInternalCounter > 0) {
             stateInternalCounter = 0;
         }
-        for (int incrCount = 0; incrCount < 2000; incrCount++) {
+        for (int incrCount = 0; incrCount < 50; incrCount++) {
             incrementForward();
         }
     }
@@ -869,6 +878,7 @@ void goUpRampUpdate() {
 
 //State 6
 void onFlatRampUpdate() {
+    Serial.println("Flat Ramp");
     getPR();
     if (pitch < (99 + PITCH_TOLERANCE)) {
         if (stateInternalCounter > 0) {
@@ -892,12 +902,13 @@ void onFlatRampUpdate() {
 
 //State 7
 void goDownRampUpdate() {
+    Serial.println("Going down ramp");
     getPR();
     if (pitch > (99 + PITCH_TOLERANCE)) {
         if (stateInternalCounter > 0) {
             stateInternalCounter = 0;
         }
-        for (int incrCount = 0; incrCount < 2000; incrCount++) {
+        for (int incrCount = 0; incrCount < 50; incrCount++) {
             incrementForward();
         }
     }
@@ -915,6 +926,7 @@ void goDownRampUpdate() {
 
 //State 8
 void findBaseUpdate() {
+    Serial.println("Finding base");
     updateSonar(&USPairs[USPairDirLeft]);
     updateSonar(&USPairs[USPairDirFront]);
     updateSonar(&USPairs[USPairDirRight]);
@@ -927,7 +939,7 @@ void findBaseUpdate() {
     //found the base
     if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE) {
         // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 10;
+        currentState = 9;
     }
     else if (frontDistance < SEARCH_SPACING) {
         // Trigger state transition. Use a proper enum for this when time permits.
@@ -949,32 +961,34 @@ void findBaseUpdate() {
 
 //State 9
 void driveToBaseUpdate() {
+  Serial.println("Drive to Base");
     updateSonar(&USPairs[USPairDirFront]);
     
     float frontDistanceLeft = USPairs[USPairDirFront].us[0]->filteredDist;
     float frontDistanceRight = USPairs[USPairDirFront].us[1]->filteredDist;
+    float frontDistance = USPairs[USPairDirFront].distance;
     
-//    if(prevState == 7)
-//    {
-//        prevState == currentState;
-//        currentState = 1;
-//    }
-//    else
-//    {
-//      if (frontAngle > ANGLE_TOLERANCE)
-//      {
-//          for(int i = 0; i < 10; i++)
-//            incrementRotateRight();
-//      }
-//      else if(frontAngle < ANGLE_TOLERANCE)
-//      {
-//          for(int i = 0; i < 10; i++)
-//            incrementRotateLeft();
-//      }
-//      incrementForward();
-//      if(frontDistance == DISTANCE_TOLERANCE)
-//            currentState = 9;
-//    }
+    if(prevState == 8)
+    {
+        prevState == currentState;
+        currentState = 1;
+    }
+    else
+    {
+      if (frontDistanceLeft - frontDistanceRight > 25)
+      {
+          for(int i = 0; i < 10; i++)
+            incrementRotateRight();
+      }
+      else if(frontDistanceRight - frontDistanceLeft > 25)
+      {
+          for(int i = 0; i < 10; i++)
+            incrementRotateLeft();
+      }
+      incrementForward();
+      if(frontDistance == 0)
+            currentState = 9;
+    }
 }
 
 //State 10
