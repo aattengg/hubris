@@ -27,6 +27,7 @@
 #include <I2Cdev.h>
 #include <MPU6050.h>
 #include <FiniteStateMachine.h>
+#include <math.h>
 #include "Ultrasonic.h"
 
 /********************
@@ -134,22 +135,27 @@ bool blinkState = false;
 volatile bool interrupt = false;
 
 //State Machine Constants
-const unsigned int DISTANCE_TOLERANCE = 2;
-const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 25;
+const unsigned int DISTANCE_TOLERANCE = 0;
+const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 36;
 const unsigned int DRIVE_TO_WALL_REFERENCE_DISTANCE = 25;
 const float PITCH_TOLERANCE = 15;
-const float ROLL_TOLERANCE = 15;
-const float ANGLE_TOLERANCE = 4*3.14/180;
+const float ROLL_TOLERANCE = 1;
+const float ANGLE_TOLERANCE = 3*3.14159/180;
+const float BIG_ANGLE_TOLERANCE = 7*3.14/180;
 const unsigned int SEARCH_SPACING = 30;
 const unsigned int SEARCH_EXPECTED_MAX_DISTANCE = 80;
 
 // State Machine Variables
 unsigned int stateInternalCounter = 0;
+unsigned int stateInternalCounter2 = 0;
+unsigned int stateInternalCounter3 = 0;
 bool stateInternalFlag = false;
+float rollReference;
 
 /** this is the definitions of the states that our program uses */
 void driveToWallUpdate();
-void rotateLeft90Update();
+void rotateLeft45FirstUpdate();
+void rotateLeft45SecondUpdate();
 void driveToRampUpdate();
 void getOnRampUpdate();
 void goUpRampUpdate();
@@ -160,7 +166,8 @@ void findBaseLeg2Update();
 void driveToBaseUpdate();
 void idleUpdate();
 State driveToWall = State(driveToWallUpdate);  //first state where we drive To the wall
-State rotateLeft90 = State(rotateLeft90Update);  //state where robot rotates left 90 degrees
+State rotateLeft45First = State(rotateLeft45FirstUpdate);  //state where robot rotates left 90 degrees
+State rotateLeft45Second = State(rotateLeft45SecondUpdate);
 State driveToRamp = State(driveToRampUpdate);  //keeps itself aligned to the ramp as it drives closer
 State getOnRamp = State(getOnRampUpdate); //get the wheels onto the ramp itself via alignment corrections
 State goUpRamp = State(goUpRampUpdate); //pretty much just driving straight lol
@@ -200,6 +207,30 @@ void loop() {
         }
     }
     runFSM();
+    /*updateSonar(&USPairs[USPairDirRight]);
+    float rightAngle = USPairs[USPairDirRight].angle;
+    Serial.print("State: ");
+    Serial.println(currentState);
+    Serial.print("Angle: ");
+    Serial.println(rightAngle * 3.14159/180);
+    
+    updateSonar(&USPairs[USPairDirRight]);
+    updateSonar(&USPairs[USPairDirFront]);
+    updateSonar(&USPairs[USPairDirLeft]);
+    
+    float rightAngle = USPairs[USPairDirRight].angle;
+    Serial.print("Right Angle: ");
+    Serial.println(rightAngle * 180/3.14159);
+    
+    Serial.print("Front Face [0]:");
+    Serial.println(USPairs[USPairDirFront].us[0]->filteredDist);
+    Serial.print("Front Face [1]:");
+    Serial.println(USPairs[USPairDirFront].us[1]->filteredDist);
+    Serial.print("Right Face [0]:");
+    Serial.println(USPairs[USPairDirRight].us[0]->filteredDist);
+    Serial.print("Right Face [1]:");
+    Serial.println(USPairs[USPairDirRight].us[1]->filteredDist);
+    */
 }
 
 // Incremental movement helper functions.
@@ -359,6 +390,10 @@ void initIMU()
 
     // configure LED for output
     pinMode(LED_PIN, OUTPUT);
+    delay(1000);
+    getPR();
+    rollReference = roll;
+    Serial.println(rollReference);
 }
 
 void getPR()
@@ -392,16 +427,17 @@ void runFSM()
   //CONTROL THE STATE
     switch (currentState){
       case 0: stateMachine.transitionTo(driveToWall); break;
-      case 1: stateMachine.transitionTo(rotateLeft90); break;
-      case 2: stateMachine.transitionTo(driveToRamp); break;
-      case 3: stateMachine.transitionTo(getOnRamp); break;
-      case 4: stateMachine.transitionTo(goUpRamp); break;
-      case 5: stateMachine.transitionTo(onFlatRamp); break;
-      case 6: stateMachine.transitionTo(goDownRamp); break;
-      case 7: stateMachine.transitionTo(findBaseLeg1); break;
-      case 8: stateMachine.transitionTo(findBaseLeg2); break;
-      case 9: stateMachine.transitionTo(driveToBase); break;
-      case 10: stateMachine.transitionTo(idle); break;
+      case 1: stateMachine.transitionTo(rotateLeft45First); break;
+      case 2: stateMachine.transitionTo(rotateLeft45Second); break;
+      case 3: stateMachine.transitionTo(driveToRamp); break;
+      case 4: stateMachine.transitionTo(getOnRamp); break;
+      case 5: stateMachine.transitionTo(goUpRamp); break;
+      case 6: stateMachine.transitionTo(onFlatRamp); break;
+      case 7: stateMachine.transitionTo(goDownRamp); break;
+      case 8: stateMachine.transitionTo(findBaseLeg1); break;
+      case 9: stateMachine.transitionTo(findBaseLeg2); break;
+      case 10: stateMachine.transitionTo(driveToBase); break;
+      case 11: stateMachine.transitionTo(idle); break;
     }
   //THIS LINE IS CRITICAL
   //do not remove the stateMachine.update() call, it is what makes this program 'tick'
@@ -410,11 +446,11 @@ void runFSM()
 
 void driveToWallUpdate() {
     updateSonar(&USPairs[USPairDirFront]);
-    updateSonar(&USPairs[USPairDirRight]);
+    //updateSonar(&USPairs[USPairDirRight]);
 
     float frontDistance = USPairs[USPairDirFront].distance;
-    float rightDistance = USPairs[USPairDirRight].distance;
-    float rightAngle = USPairs[USPairDirRight].angle;
+    //float rightDistance = USPairs[USPairDirRight].distance;
+    //float rightAngle = USPairs[USPairDirRight].angle;
 
     if (frontDistance < DRIVE_TO_WALL_DESIRED_DISTANCE) {
         // The ultrasonic appears to read constant distance of 10 cm for some time after initialization.
@@ -429,44 +465,68 @@ void driveToWallUpdate() {
     else {
         if (!stateInternalFlag) {
             stateInternalFlag = true;
-        }
-        if ((rightDistance < (DRIVE_TO_WALL_REFERENCE_DISTANCE - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
+        }/*
+        if ((rightDistance < (DRIVE_TO_WALL_REFERENCE_DISTANCE - DISTANCE_TOLERANCE)) && (rightAngle < -ANGLE_TOLERANCE)) {
             incrementRotateLeft();
         }
         else if ((rightDistance > (DRIVE_TO_WALL_REFERENCE_DISTANCE + DISTANCE_TOLERANCE)) && (rightAngle > ANGLE_TOLERANCE)) {
             incrementRotateRight();
-        }
+        }*/
         else {
-            incrementForward();
+            //for (int incrCount = 0; incrCount < 5; incrCount++) {
+                incrementForward();
+            //}
         }
     }
 }
 
 //change name?
-void rotateLeft90Update() {
+void rotateLeft45FirstUpdate() {
     /*updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
 
     //will require low angle tolerance and must avoid initial right wall (utilize front sensors as well?)
-    if ((abs(rightAngle) > ANGLE_TOLERANCE)) {
-        if (!stateInternalFlag) {
-            stateInternalFlag = true;
+    //if (!(abs(rightAngle) < ANGLE_TOLERANCE)) {
+    if (!isnan(rightAngle)) {
+        if (stateInternalCounter2 < 20) {
+            stateInternalCounter2++;
         }
-        incrementRotateLeft();
+        else {
+            if (!stateInternalFlag) {
+                stateInternalFlag = true;
+            }
+            incrementRotateLeft();
+            stateInternalCounter = 0;
+        }
+    }
+    else if (rightAngle < -ANGLE_TOLERANCE) {
+        incrementRotateRight();
+        stateInternalCounter = 0;
     }
     else {
+        stateInternalCounter2 = 0;
         if (stateInternalFlag) {
-            stateInternalFlag = false;
-            // Trigger state transition. Use a proper enum for this when time permits.
-            if (prevState == 0) {
-                currentState = 2;
+            if (stateInternalCounter < 20) {
+                stateInternalCounter++;
             }
-            else {  // prevState == 7 || prevState == 8;
-                currentState = 8;
+                else {
+                stateInternalFlag = false;
+                stateInternalCounter = 0;
+                // Trigger state transition. Use a proper enum for this when time permits.
+                currentState = 2;
+                if (prevState == 0) {
+                    currentState = 2;
+                }
+                else {  // prevState == 7 || prevState == 8;
+                    currentState = 8;
+                }
             }
         }
+        else {
+            incrementRotateLeft();
+        }
     }*/
-    if (stateInternalCounter < 250) {
+    if (stateInternalCounter < 160) { // 150 is fairly reliable
         incrementRotateLeft();
         stateInternalCounter++;
     }
@@ -482,99 +542,342 @@ void rotateLeft90Update() {
     }
 }
 
-void driveToRampUpdate() {
+void rotateLeft45SecondUpdate() {
+    /*updateSonar(&USPairs[USPairDirRight]);
+    float rightAngle = USPairs[USPairDirRight].angle;
+
+    //will require low angle tolerance and must avoid initial right wall (utilize front sensors as well?)
+    //if (!(abs(rightAngle) < ANGLE_TOLERANCE)) {
+    //GOOD START HERE
+    
+    if (!(abs(rightAngle) < BIG_ANGLE_TOLERANCE + 2*3.14159/180)) {
+      if (stateInternalCounter2 < 10) {
+            stateInternalCounter2++;
+        }
+        else {
+            incrementRotateLeft();
+            stateInternalCounter = 0;
+        }
+    }
+    */
+    //GOOD END HERE
+    /*else if (rightAngle < -ANGLE_TOLERANCE) {
+        incrementRotateRight();
+        stateInternalCounter = 0;
+    }*/
+    //GOOD START HERE
+    /*
+    else {
+        stateInternalCounter2 = 0;
+            if (stateInternalCounter < 10) {
+                stateInternalCounter++;
+            }
+                else {
+                stateInternalCounter = 0;
+                // Trigger state transition. Use a proper enum for this when time permits.
+                if (prevState == 0) {
+                    currentState = 3;
+                }
+                else {  // prevState == 8 || prevState == 9;
+                    currentState = 10;
+                }
+            }
+    }*/
+    //GOOD END HERE
+    /*
+    if (stateInternalCounter < 160) { // 150 is fairly reliable
+        incrementRotateLeft();
+        stateInternalCounter++;
+    }*/
     updateSonar(&USPairs[USPairDirRight]);
+    float rightAngle = USPairs[USPairDirRight].angle;
+    if (isnan(rightAngle)) {
+        if (stateInternalCounter3 < 30) {
+            stateInternalCounter3++;
+        }
+        else {
+            stateInternalCounter = 0;
+            stateInternalCounter2 = 0;
+            stateInternalCounter3 = 0;
+            // Trigger state transition. Use a proper enum for this when time permits.
+            if (prevState == 0) {
+                currentState = 3;
+            }
+            else {  // prevState == 7 || prevState == 8;
+                currentState = 8;
+            }
+        }
+    }
+    else if (rightAngle < -ANGLE_TOLERANCE) {
+        if (stateInternalCounter2 > 0) {
+            stateInternalCounter2 = 0;
+        }
+        if (stateInternalCounter3 > 0) {
+            stateInternalCounter3 = 0;
+        }
+        if (stateInternalCounter < 30) {
+            stateInternalCounter++;
+        }
+        else {
+            incrementRotateLeft();
+        }
+    }
+    else if (rightAngle > ANGLE_TOLERANCE) {
+        if (stateInternalCounter > 0) {
+            stateInternalCounter = 0;
+        }
+        if (stateInternalCounter3 > 0) {
+            stateInternalCounter = 0;
+        }
+        if (stateInternalCounter2 < 30) {
+            stateInternalCounter2++;
+        }
+        else {
+            incrementRotateRight();
+        }
+    }
+    else {
+        stateInternalCounter = 0;
+        stateInternalCounter2 = 0;
+        stateInternalCounter3 = 0;
+            // Trigger state transition. Use a proper enum for this when time permits.
+            if (prevState == 0) {
+                currentState = 3;
+            }
+            else {  // prevState == 7 || prevState == 8;
+                currentState = 8;
+            }
+    }
+}
+
+void driveToRampUpdate() {
+    /*updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
 
     //double check logic
-    if (rightAngle - 90 > ANGLE_TOLERANCE) {
-        incrementRotateLeft();
-    }
-    else if(rightAngle - 90 < -ANGLE_TOLERANCE)  {
-      incrementRotateRight();
-    }
-    else  {
-      getPR();
+    if (isnan(rightAngle) || rightAngle > BIG_ANGLE_TOLERANCE) {
+        if (stateInternalCounter2 > 0) {
+            stateInternalCounter2 = 0;
+        }
+        if (stateInternalCounter3 > 0) {
+            stateInternalCounter3 = 0;
+        }
+        getPR();
       if (pitch > (99 - PITCH_TOLERANCE)) {
+          if (stateInternalCounter > 0) {
+              stateInternalCounter = 0;
+          }
           incrementForward();
       }
       else {
-          // Trigger state transition. Use a proper enum for this when time permits.
-          currentState = 3;
+          if (stateInternalCounter < 100) {
+              stateInternalCounter++;
+          }
+          else {
+              stateInternalCounter = 0;
+              // Trigger state transition. Use a proper enum for this when time permits.
+              currentState = 4;
+          }
       }
     }
+    else if (rightAngle > ANGLE_TOLERANCE) {
+        if (stateInternalCounter3 > 0) {
+            stateInternalCounter3 = 0;
+        }
+        if (stateInternalCounter2 < 100) {
+            stateInternalCounter2++;
+        }
+        else {
+            for (int incrCount = 0; incrCount < 5; incrCount++) {
+                incrementRotateRight();
+                //incrementForward();
+            }
+        }
+    }
+    else if(rightAngle < -ANGLE_TOLERANCE)  {
+        if (stateInternalCounter2 > 0) {
+            stateInternalCounter2 = 0;
+        }
+        if (stateInternalCounter3 < 100) {
+            stateInternalCounter3++;
+        }
+        else {
+            for (int incrCount = 0; incrCount < 5; incrCount++) {
+                incrementRotateLeft();
+                //incrementForward();
+            }
+        }
+    }
+    else  {
+      if (stateInternalCounter2 > 0) {
+          stateInternalCounter2 = 0;
+      }*/
+      getPR();
+      if (pitch > (99 - PITCH_TOLERANCE)) {
+          if (stateInternalCounter > 0) {
+              stateInternalCounter = 0;
+          }
+          for (int incrCount = 0; incrCount < 20; incrCount++) {
+              incrementForward();
+          }
+      }
+      else {
+          if (stateInternalCounter < 100) {
+              stateInternalCounter++;
+          }
+          else {
+              stateInternalCounter = 0;
+              // Trigger state transition. Use a proper enum for this when time permits.
+              currentState = 4;
+          }
+      }
+    //}
 }
 
 //unsure of whats going on here
 void getOnRampUpdate() {
     getPR();
-    if (roll < -ROLL_TOLERANCE - 1.5) {
-        for (int i = 0; i < 70; i++) {
-            incrementBackward();
+    Serial.print("Roll: ");
+    Serial.println(roll);
+    if (roll < -ROLL_TOLERANCE + rollReference) {
+        if (stateInternalCounter2 > 0) {
+            stateInternalCounter2 = 0;
         }
-        for (int i = 0; i < 20; i++) {
-            incrementRotateRight();
+        if (stateInternalCounter < 100) {
+            stateInternalCounter++;
         }
-        for (int i = 0; i < 70; i++) {
-            incrementForward();
-        }
-        for (int i = 0; i < 20; i++) {
-            incrementRotateLeft();
-        }
-    }
-    else if (roll > ROLL_TOLERANCE - 1.5) {
-        for (int i = 0; i < 70; i++) {
+        else {
+        for (int i = 0; i < 150; i++) {
             incrementBackward();
         }
         for (int i = 0; i < 20; i++) {
             incrementRotateLeft();
         }
-        for (int i = 0; i < 70; i++) {
+        for (int i = 0; i < 100; i++) {
             incrementForward();
         }
         for (int i = 0; i < 20; i++) {
             incrementRotateRight();
         }
+        for (int i = 0; i < 100; i++) {
+            incrementForward();
+        }
+            stateInternalCounter = 0;
+        }
     }
-    else if (pitch > (90 - PITCH_TOLERANCE)) {
-        incrementForward();
+    else if (roll > ROLL_TOLERANCE + rollReference) {
+        if (stateInternalCounter2 > 0) {
+            stateInternalCounter2 = 0;
+        }
+        if (stateInternalCounter < 100) {
+            stateInternalCounter++;
+        }
+        else {
+        for (int i = 0; i < 150; i++) {
+            incrementBackward();
+        }
+        for (int i = 0; i < 20; i++) {
+            incrementRotateRight();
+        }
+        for (int i = 0; i < 100; i++) {
+            incrementForward();
+        }
+        for (int i = 0; i < 20; i++) {
+            incrementRotateLeft();
+        }
+        for (int i = 0; i < 100; i++) {
+            incrementForward();
+        }
+            stateInternalCounter = 0;
+        }
+    }
+    else if (pitch > (99 - PITCH_TOLERANCE)) {
+        if (stateInternalCounter > 0) {
+            stateInternalCounter = 0;
+        }
+        if (stateInternalCounter2 > 0) {
+            stateInternalCounter2 = 0;
+        }
+        for (int incrCount = 0; incrCount < 100; incrCount++) {
+            incrementForward();
+        }
     }
     else {
-        // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 4;
+        if (stateInternalCounter2 < 100) {
+            stateInternalCounter2++;
+        }
+        else {
+            stateInternalCounter = 0;
+            stateInternalCounter2 = 0;
+            // Trigger state transition. Use a proper enum for this when time permits.
+            currentState = 5;
+        }
     }
 }
 
 void goUpRampUpdate() {
     getPR();
     if (pitch < (99 - PITCH_TOLERANCE)) {
-        incrementForward();
+        if (stateInternalCounter > 0) {
+            stateInternalCounter = 0;
+        }
+        for (int incrCount = 0; incrCount < 1000; incrCount++) {
+            incrementForward();
+        }
     }
     else {
-        // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 5;
+        if (stateInternalCounter < 100) {
+            stateInternalCounter++;
+        }
+        else {
+            stateInternalCounter = 0;
+            // Trigger state transition. Use a proper enum for this when time permits.
+            currentState = 6;
+        }
     }
 }
 
 void onFlatRampUpdate() {
     getPR();
     if (pitch < (99 + PITCH_TOLERANCE)) {
-        incrementForward();
+        if (stateInternalCounter > 0) {
+            stateInternalCounter = 0;
+        }
+        for (int incrCount = 0; incrCount < 50; incrCount++) {
+            incrementForward();
+        }
     }
     else {
-        // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 6;
+        if (stateInternalCounter < 100) {
+            stateInternalCounter++;
+        }
+        else {
+            stateInternalCounter = 0;
+            // Trigger state transition. Use a proper enum for this when time permits.
+            currentState = 7;
+        }
     }
 }
 
 void goDownRampUpdate() {
     getPR();
     if (pitch > (99 + PITCH_TOLERANCE)) {
-        incrementForward();
+        if (stateInternalCounter > 0) {
+            stateInternalCounter = 0;
+        }
+        for (int incrCount = 0; incrCount < 1000; incrCount++) {
+            incrementForward();
+        }
     }
     else {
-        // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 7;
+        if (stateInternalCounter < 100) {
+            stateInternalCounter++;
+        }
+        else {
+            stateInternalCounter = 0;
+            // Trigger state transition. Use a proper enum for this when time permits.
+            currentState = 8;
+        }
     }
 }
 
@@ -590,7 +893,7 @@ void findBaseLeg1Update() {
 
     if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE) {
         // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 9;
+        currentState = 10;
     }
     else if (frontDistance < SEARCH_SPACING) {
         // Trigger state transition. Use a proper enum for this when time permits.
@@ -622,7 +925,7 @@ void findBaseLeg2Update() {
 
     if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE) {
         // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 9;
+        currentState = 10;
     }
     else if (frontDistance < SEARCH_SPACING) {
         // Trigger state transition. Use a proper enum for this when time permits.
