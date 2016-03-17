@@ -161,8 +161,7 @@ void getOnRampUpdate();
 void goUpRampUpdate();
 void onFlatRampUpdate();
 void goDownRampUpdate();
-void findBaseLeg1Update();
-void findBaseLeg2Update();
+void findBaseUpdate();
 void driveToBaseUpdate();
 void idleUpdate();
 State driveToWall = State(driveToWallUpdate);  //first state where we drive To the wall
@@ -173,8 +172,7 @@ State getOnRamp = State(getOnRampUpdate); //get the wheels onto the ramp itself 
 State goUpRamp = State(goUpRampUpdate); //pretty much just driving straight lol
 State onFlatRamp = State(onFlatRampUpdate); //still just driving straight (why is this even a state)
 State goDownRamp = State(goDownRampUpdate); //see above -_-
-State findBaseLeg1 = State(findBaseLeg1Update); //drive around and look for the base
-State findBaseLeg2 = State(findBaseLeg2Update);
+State findBase = State(findBaseUpdate); //drive around and look for the base
 State driveToBase = State(driveToBaseUpdate); //probably not needed since findBase should totally cover it
 State idle = State(idleUpdate);
 
@@ -435,6 +433,7 @@ void runFSM()
   //CONTROL THE STATE
     switch (currentState){
       case 0: stateMachine.transitionTo(driveToWall); break;
+<<<<<<< HEAD
       case 1: stateMachine.transitionTo(rotateLeft45First); break;
       case 2: stateMachine.transitionTo(rotateLeft45Second); break;
       case 3: stateMachine.transitionTo(driveToRamp); break;
@@ -446,12 +445,24 @@ void runFSM()
       case 9: stateMachine.transitionTo(findBaseLeg2); break;
       case 10: stateMachine.transitionTo(driveToBase); break;
       case 11: stateMachine.transitionTo(idle); break;
+=======
+      case 1: stateMachine.transitionTo(rotateLeft90); break;
+      case 2: stateMachine.transitionTo(driveToRamp); break;
+      case 3: stateMachine.transitionTo(getOnRamp); break;
+      case 4: stateMachine.transitionTo(goUpRamp); break;
+      case 5: stateMachine.transitionTo(onFlatRamp); break;
+      case 6: stateMachine.transitionTo(goDownRamp); break;
+      case 7: stateMachine.transitionTo(findBase); break;
+      case 8: stateMachine.transitionTo(driveToBase); break;
+      case 9: stateMachine.transitionTo(idle); break;
+>>>>>>> 0526576b0d4fcb186ad8b9f8400bf7c7d62e5f80
     }
   //THIS LINE IS CRITICAL
   //do not remove the stateMachine.update() call, it is what makes this program 'tick'
   stateMachine.update();
 }
 
+//State 0
 void driveToWallUpdate() {
     updateSonar(&USPairs[USPairDirFront]);
     //updateSonar(&USPairs[USPairDirRight]);
@@ -488,9 +499,15 @@ void driveToWallUpdate() {
     }
 }
 
+<<<<<<< HEAD
 //change name?
 void rotateLeft45FirstUpdate() {
     /*updateSonar(&USPairs[USPairDirRight]);
+=======
+//State 1
+void rotateLeft90Update() {
+    updateSonar(&USPairs[USPairDirRight]);
+>>>>>>> 0526576b0d4fcb186ad8b9f8400bf7c7d62e5f80
     float rightAngle = USPairs[USPairDirRight].angle;
 
     //will require low angle tolerance and must avoid initial right wall (utilize front sensors as well?)
@@ -539,6 +556,7 @@ void rotateLeft45FirstUpdate() {
         stateInternalCounter++;
     }
     else {
+<<<<<<< HEAD
         stateInternalCounter = 0;
             // Trigger state transition. Use a proper enum for this when time permits.
             if (prevState == 0) {
@@ -565,6 +583,18 @@ void rotateLeft45SecondUpdate() {
         else {
             incrementRotateLeft();
             stateInternalCounter = 0;
+=======
+        // Trigger state transition. Use a proper enum for this when time permits.
+        prevState = currentState;
+        if (prevState == 0) {
+            currentState = 2;
+        }
+        else if(prevState == 7){  
+            currentState = 7;
+        }
+        else{// prevState == 8;
+            currentState = 8;
+>>>>>>> 0526576b0d4fcb186ad8b9f8400bf7c7d62e5f80
         }
     }
     */
@@ -658,6 +688,7 @@ void rotateLeft45SecondUpdate() {
     }
 }
 
+//State 2
 void driveToRampUpdate() {
     /*updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
@@ -742,7 +773,7 @@ void driveToRampUpdate() {
     //}
 }
 
-//unsure of whats going on here
+//State 3
 void getOnRampUpdate() {
     getPR();
     Serial.print("Roll: ");
@@ -831,6 +862,7 @@ void getOnRampUpdate() {
     }
 }
 
+//State 4
 void goUpRampUpdate() {
     getPR();
     if (pitch < (99 - PITCH_TOLERANCE)) {
@@ -853,6 +885,7 @@ void goUpRampUpdate() {
     }
 }
 
+//State 5
 void onFlatRampUpdate() {
     getPR();
     if (pitch < (99 + PITCH_TOLERANCE)) {
@@ -875,6 +908,7 @@ void onFlatRampUpdate() {
     }
 }
 
+//State 6
 void goDownRampUpdate() {
     getPR();
     if (pitch > (99 + PITCH_TOLERANCE)) {
@@ -897,7 +931,8 @@ void goDownRampUpdate() {
     }
 }
 
-void findBaseLeg1Update() {
+//State 7
+void findBaseUpdate() {
     updateSonar(&USPairs[USPairDirLeft]);
     updateSonar(&USPairs[USPairDirFront]);
     updateSonar(&USPairs[USPairDirRight]);
@@ -907,8 +942,10 @@ void findBaseLeg1Update() {
     float rightDistance = USPairs[USPairDirRight].distance;
     float rightAngle = USPairs[USPairDirRight].angle;
 
+    //found the base
     if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE) {
         // Trigger state transition. Use a proper enum for this when time permits.
+<<<<<<< HEAD
         currentState = 10;
     }
     else if (frontDistance < SEARCH_SPACING) {
@@ -942,17 +979,26 @@ void findBaseLeg2Update() {
     if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE) {
         // Trigger state transition. Use a proper enum for this when time permits.
         currentState = 10;
+=======
+        prevState = currentState;
+        currentState = 8;
+>>>>>>> 0526576b0d4fcb186ad8b9f8400bf7c7d62e5f80
     }
+    //reached the wall and need to turn left
     else if (frontDistance < SEARCH_SPACING) {
         // Trigger state transition. Use a proper enum for this when time permits.
+        prevState = currentState;
         currentState = 1;
     }
+    //keep parallel to the right wall and drive straight
     else {
         if ((rightDistance < (SEARCH_SPACING - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
-            incrementRotateLeft();
+            for(int i = 0; i < 10; i++)
+              incrementRotateLeft();
         }
         else if ((rightDistance > (SEARCH_SPACING + DISTANCE_TOLERANCE)) && (rightAngle > ANGLE_TOLERANCE)) {
-            incrementRotateRight();
+            for(int i = 0; i < 10; i++)
+              incrementRotateRight();
         }
         else {
             incrementForward();
@@ -960,10 +1006,37 @@ void findBaseLeg2Update() {
     }
 }
 
+//State 8
 void driveToBaseUpdate() {
-
+    updateSonar(&USPairs[USPairDirFront]);
+    
+    float frontDistanceLeft = USPairs[USPairDirFront].us[0]->filteredDist;
+    float frontDistanceRight = USPairs[USPairDirFront].us[1]->filteredDist;
+    
+//    if(prevState == 7)
+//    {
+//        prevState == currentState;
+//        currentState = 1;
+//    }
+//    else
+//    {
+//      if (frontAngle > ANGLE_TOLERANCE)
+//      {
+//          for(int i = 0; i < 10; i++)
+//            incrementRotateRight();
+//      }
+//      else if(frontAngle < ANGLE_TOLERANCE)
+//      {
+//          for(int i = 0; i < 10; i++)
+//            incrementRotateLeft();
+//      }
+//      incrementForward();
+//      if(frontDistance == DISTANCE_TOLERANCE)
+//            currentState = 9;
+//    }
 }
 
+//State 9
 void idleUpdate () {
     delay(1000);
 }
