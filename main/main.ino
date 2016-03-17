@@ -440,10 +440,14 @@ void rotateLeft90Update() {
     }
     else {
         // Trigger state transition. Use a proper enum for this when time permits.
+        prevState = currentState;
         if (prevState == 0) {
             currentState = 2;
         }
-        else {  // prevState == 7 || prevState == 8;
+        else if(prevState == 7){  
+            currentState = 7;
+        }
+        else{// prevState == 8;
             currentState = 8;
         }
     }
@@ -563,7 +567,8 @@ void findBaseUpdate() {
     //found the base
     if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE) {
         // Trigger state transition. Use a proper enum for this when time permits.
-        currentState = 9;
+        prevState = currentState;
+        currentState = 8;
     }
     //reached the wall and need to turn left
     else if (frontDistance < SEARCH_SPACING) {
@@ -601,7 +606,18 @@ void findBaseUpdate() {
 
 //State 8
 void driveToBaseUpdate() {
-
+    updateSonar(&USPairs[USPairDirFront]);
+    
+    float frontAngle = USPairs[USPairDirFront].angle;
+    
+    if(prevState == 8)
+        currentState = 1;
+    if (frontAngle > ANGLE_TOLERANCE)
+        incrementRotateRight();
+    else if(frontAngle < ANGLE_TOLERANCE)
+        incrementRotateLeft();
+    
+    incrementForward();
 }
 
 //State 9
