@@ -596,22 +596,30 @@ void findBaseUpdate() {
 void driveToBaseUpdate() {
     updateSonar(&USPairs[USPairDirFront]);
     
-    float frontAngle = USPairs[USPairDirFront].angle;
+    float frontDistanceLeft = USPairs[USPairDirFront].us[0]->filteredDist;
+    float frontDistanceRight = USPairs[USPairDirFront].us[1]->filteredDist;
     
-    if(prevState == 8)
-        currentState = 1;
-    if (frontAngle > ANGLE_TOLERANCE)
-    {
-        for(int i = 0; i < 10; i++)
-          incrementRotateRight();
-    }
-    else if(frontAngle < ANGLE_TOLERANCE)
-    {
-        for(int i = 0; i < 10; i++)
-          incrementRotateLeft();
-    }
-    
-    incrementForward();
+//    if(prevState == 7)
+//    {
+//        prevState == currentState;
+//        currentState = 1;
+//    }
+//    else
+//    {
+//      if (frontAngle > ANGLE_TOLERANCE)
+//      {
+//          for(int i = 0; i < 10; i++)
+//            incrementRotateRight();
+//      }
+//      else if(frontAngle < ANGLE_TOLERANCE)
+//      {
+//          for(int i = 0; i < 10; i++)
+//            incrementRotateLeft();
+//      }
+//      incrementForward();
+//      if(frontDistance == DISTANCE_TOLERANCE)
+//            currentState = 9;
+//    }
 }
 
 //State 9
