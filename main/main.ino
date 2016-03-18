@@ -138,12 +138,12 @@ const unsigned int DISTANCE_TOLERANCE = 0;
 const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 36;
 const unsigned int DRIVE_TO_WALL_REFERENCE_DISTANCE = 25;
 const float PITCH_TOLERANCE = 15;
-const float END_PITCH_TOLERANCE = 20;
+const float END_PITCH_TOLERANCE = 8;
 const float ROLL_TOLERANCE = 1;
 const float ANGLE_TOLERANCE = 3*M_PI/180;
 const float BIG_ANGLE_TOLERANCE = 7*M_PI/180;
 const unsigned int SEARCH_SPACING = 30;
-const unsigned int SEARCH_EXPECTED_MAX_DISTANCE = 130;
+const unsigned int SEARCH_EXPECTED_MAX_DISTANCE = 150;
 
 // State Machine Variables
 unsigned int stateInternalCounter = 0;
@@ -768,6 +768,8 @@ void goDownRampUpdate() {
         else {
             stateInternalCounter = 0;
             // Trigger state transition. Use a proper enum for this when time permits.
+            for(int i = 0; i < 200; i++)
+                incrementForward();
             getPR();
             pitchReference = pitch;
             prevState = currentState;
@@ -796,26 +798,7 @@ void findBaseUpdate() {
     }
     
     //found the base
-    getPR();
-    Serial.print("ref - tol: ");
-    Serial.println(pitchReference-END_PITCH_TOLERANCE);
-    Serial.print("pitch: ");
-    Serial.println(pitch);
-    if(pitch < pitchReference-END_PITCH_TOLERANCE)
-    {
-        if (stateInternalCounter2 < 30)
-        {
-            stateInternalCounter2++;
-            for(int i = 0; i < 10; i++)
-                incrementForward();
-        }
-        else {
-            stateInternalCounter2 = 0;
-            prevState = currentState;
-            currentState = 10;
-        }
-    }
-    else if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE && !isnan(leftDistance)) {
+    if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE && !isnan(leftDistance)) {
         if (stateInternalCounter < 30)
           stateInternalCounter++;
         else
