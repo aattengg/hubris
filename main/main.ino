@@ -143,7 +143,7 @@ const float ROLL_TOLERANCE = 1;
 const float ANGLE_TOLERANCE = 3*M_PI/180;
 const float BIG_ANGLE_TOLERANCE = 7*M_PI/180;
 const unsigned int SEARCH_SPACING = 30;
-const unsigned int SEARCH_EXPECTED_MAX_DISTANCE = 150;
+const unsigned int SEARCH_EXPECTED_MAX_DISTANCE = 130;
 
 // State Machine Variables
 unsigned int stateInternalCounter = 0;
@@ -151,6 +151,7 @@ unsigned int stateInternalCounter2 = 0;
 unsigned int stateInternalCounter3 = 0;
 bool stateInternalFlag = false;
 float rollReference;
+float pitchReference;
 bool firstTimeFlag = true;
 
 /** this is the definitions of the states that our program uses */
@@ -208,6 +209,8 @@ void loop() {
     runFSM();
 //    updateSonar(&USPairs[USPairDirLeft]);
 //    printSonarData(&USPairs[USPairDirLeft]);
+//     getPR();
+//    Serial.println(pitch );
     /*updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
     Serial.print("State: ");
@@ -406,6 +409,7 @@ void initIMU()
     delay(1000);
     getPR();
     rollReference = roll;
+    pitchReference = pitch;
     Serial.println(rollReference);
 }
 
@@ -586,7 +590,7 @@ void rotateLeft45SecondUpdate() {
 void driveToRampUpdate() {
       Serial.println("State 3");
       getPR();
-      if (pitch > (99 - PITCH_TOLERANCE)) {
+      if (pitch > (pitchReference - PITCH_TOLERANCE)) {
           if (stateInternalCounter > 0) {
               stateInternalCounter = 0;
           }
@@ -672,7 +676,7 @@ void getOnRampUpdate() {
             stateInternalCounter = 0;
         }
     }
-    else if (pitch > (99 - PITCH_TOLERANCE)) {
+    else if (pitch > (pitchReference - PITCH_TOLERANCE)) {
         if (stateInternalCounter > 0) {
             stateInternalCounter = 0;
         }
@@ -701,7 +705,7 @@ void getOnRampUpdate() {
 void goUpRampUpdate() {
     Serial.println("State 5");
     getPR();
-    if (pitch < (99 - PITCH_TOLERANCE)) {
+    if (pitch < (pitchReference - PITCH_TOLERANCE)) {
         if (stateInternalCounter > 0) {
             stateInternalCounter = 0;
         }
@@ -725,7 +729,7 @@ void goUpRampUpdate() {
 void onFlatRampUpdate() {
     Serial.println("State 6");
     getPR();
-    if (pitch < (99 + PITCH_TOLERANCE)) {
+    if (pitch < (pitchReference + PITCH_TOLERANCE)) {
         if (stateInternalCounter > 0) {
             stateInternalCounter = 0;
         }
@@ -749,7 +753,7 @@ void onFlatRampUpdate() {
 void goDownRampUpdate() {
     Serial.println("State 7");
     getPR();
-    if (pitch > (99 + PITCH_TOLERANCE)) {
+    if (pitch > (pitchReference + PITCH_TOLERANCE)) {
         if (stateInternalCounter > 0) {
             stateInternalCounter = 0;
         }
@@ -764,6 +768,8 @@ void goDownRampUpdate() {
         else {
             stateInternalCounter = 0;
             // Trigger state transition. Use a proper enum for this when time permits.
+            getPR();
+            pitchReference = pitch;
             prevState = currentState;
             currentState = 1;
         }
@@ -788,10 +794,24 @@ void findBaseUpdate() {
       for(int i = 0; i < 400; i++)
         incrementForward();
     }
-
+    
     //found the base
+    getPR();
+    if(pitch < pitchReference-END_PITCH_TOLERANCE)
+    {
+        if (stateInternalCounter > 0)
+            stateInternalCounter = 0;
+        if (stateInternalCounter2 < 30)
+            stateInternalCounter2++;
+        else {
+            prevState = currentState;
+            currentState = 10;
+        }
+    }
     if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE && !isnan(leftDistance)) {
-        if(stateInternalCounter < 30)
+        if (stateInternalCounter2 > 0)
+           stateInternalCounter2 = 0;
+        if (stateInternalCounter < 30)
           stateInternalCounter++;
         else
         {
@@ -834,9 +854,10 @@ void driveToBaseUpdate() {
     }
     else
     {
-      incrementForward();
+      for(int i = 0; i < 30; i++)
+          incrementForward();
       getPR();
-      if(frontDistance < 5 || pitch < 99-END_PITCH_TOLERANCE) //99 (zero degree flat ref) - 10 degree tilt up = 89
+      if(frontDistance < 5 || pitch < pitchReference-END_PITCH_TOLERANCE) //99 (zero degree flat ref) - 10 degree tilt up = 89
       {
             if(stateInternalCounter < 30)
                 stateInternalCounter++;
