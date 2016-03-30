@@ -135,10 +135,10 @@ volatile bool interrupt = false;
 
 //State Machine Constants
 const unsigned int DISTANCE_TOLERANCE = 0;
-const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 36;
+const unsigned int DRIVE_TO_WALL_DESIRED_DISTANCE = 35;   //13.3V
 const unsigned int DRIVE_TO_WALL_REFERENCE_DISTANCE = 25;
 const float PITCH_TOLERANCE = 15;
-const float END_PITCH_TOLERANCE = 8;
+const float END_PITCH_TOLERANCE = 3;
 const float ROLL_TOLERANCE = 1;
 const float ANGLE_TOLERANCE = 3*M_PI/180;
 const float BIG_ANGLE_TOLERANCE = 7*M_PI/180;
@@ -206,26 +206,73 @@ void loop() {
             }
         }
     }
-    runFSM();
-//    updateSonar(&USPairs[USPairDirLeft]);
-//    printSonarData(&USPairs[USPairDirLeft]);
-//     getPR();
-//    Serial.println(pitch );
+   runFSM();
+   /*
+   getPR();
+   Serial.print("Roll is: ");
+   Serial.println(roll-rollReference);
+   // roll - rollReference < -tolerance
+   // roll < -tolerance + rollReference
+   delay(100);
+   
+   
+   //Serial.print("Ref is: ");
+   //Serial.println(ROLL_TOLERANCE + rollReference);
+   if (roll < rollReference - ROLL_TOLERANCE) { 
+      Serial.print("I'm pitching left: ");
+      Serial.println(roll);
+   }
+   else if (roll > rollReference + ROLL_TOLERANCE) {
+      Serial.print("I'm pitching right");
+      Serial.println(roll);
+      
+   }
+   else{
+      rollReference = roll;
+   }
+   */
+   
+   /*
+    updateSonar(&USPairs[USPairDirLeft]);
+    Serial.println("--------------------");
+    Serial.println(USPairs[USPairDirLeft].us[0]->curDist);
+    Serial.println(USPairs[USPairDirLeft].us[1]->curDist);
+    Serial.println(USPairs[USPairDirLeft].us[0]->filteredDist);
+    Serial.println(USPairs[USPairDirLeft].us[1]->filteredDist);
+    Serial.println(USPairs[USPairDirLeft].distance);
+   */
+   //printSonarData(&USPairs[USPairDirLeft]);
+
+   /*
+    getPR();
+    Serial.println(pitch );
+    if( pitch < 99 - END_PITCH_TOLERANCE) //99 (zero degree flat ref) - 10 degree tilt up = 89
+    {
+          if(stateInternalCounter < 30)
+              stateInternalCounter++;
+          else
+          {
+              Serial.println("DONE");
+              while(1);
+          }
+
+    }*/
+    
     /*updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
     Serial.print("State: ");
     Serial.println(currentState);
     Serial.print("Angle: ");
     Serial.println(rightAngle * 3.14159/180);
-    
+
     updateSonar(&USPairs[USPairDirRight]);
     updateSonar(&USPairs[USPairDirFront]);
     updateSonar(&USPairs[USPairDirLeft]);
-    
+
     float rightAngle = USPairs[USPairDirRight].angle;
     Serial.print("Right Angle: ");
     Serial.println(rightAngle * 180/3.14159);
-    
+
     Serial.print("Front Face [0]:");
     Serial.println(USPairs[USPairDirFront].us[0]->filteredDist);
     Serial.print("Front Face [1]:");
@@ -324,6 +371,8 @@ void updateSonar(USPair_t *USPair) {
     USPair->angleBuffer1 = USPair->angleCurrent;
 
     USPair->distance = (us0->filteredDist + us1->filteredDist)/(2.0) + USPair->distToCenter * cos(USPair->angle);
+    if (isnan(USPair->distance))
+        USPair->distance = US_MAX_DIST;
 }
 
 void printSonarData(USPair_t *USPair) {
@@ -463,7 +512,7 @@ void runFSM()
 
 //State 0
 void driveToWallUpdate() {
-    Serial.println("State 0+");
+    //Serial.println("State 0+");
     updateSonar(&USPairs[USPairDirFront]);
     //updateSonar(&USPairs[USPairDirRight]);
 
@@ -501,7 +550,7 @@ void driveToWallUpdate() {
 
 //state 1
 void rotateLeft45FirstUpdate() {
-    Serial.println("State 1");
+    //Serial.println("State 1");
     if (stateInternalCounter < 160) { // 150 is fairly reliable
         incrementRotateLeft();
         stateInternalCounter++;
@@ -524,7 +573,7 @@ void rotateLeft45FirstUpdate() {
 
 //state 2
 void rotateLeft45SecondUpdate() {
-    Serial.println("State 2");
+    //Serial.println("State 2");
     updateSonar(&USPairs[USPairDirRight]);
     float rightAngle = USPairs[USPairDirRight].angle;
     if (isnan(rightAngle)) {
@@ -588,15 +637,14 @@ void rotateLeft45SecondUpdate() {
 
 //State 3
 void driveToRampUpdate() {
-      Serial.println("State 3");
+      //Serial.println("State 3");
       getPR();
       if (pitch > (pitchReference - PITCH_TOLERANCE)) {
           if (stateInternalCounter > 0) {
               stateInternalCounter = 0;
           }
-          for (int incrCount = 0; incrCount < 20; incrCount++) {
-              incrementForward();
-          }
+          delay(10);
+          incrementForward();
       }
       else {
           if (stateInternalCounter < 100) {
@@ -605,6 +653,9 @@ void driveToRampUpdate() {
           else {
               stateInternalCounter = 0;
               // Trigger state transition. Use a proper enum for this when time permits.
+              delay(500);
+              getPR();
+              rollReference = roll;
               currentState = 4;
           }
       }
@@ -613,11 +664,11 @@ void driveToRampUpdate() {
 
 //State 4
 void getOnRampUpdate() {
-    Serial.println("State 4");
+    //Serial.println("State 4");
     getPR();
 //    Serial.print("Roll: ");
 //    Serial.println(roll);
-    if (roll < -ROLL_TOLERANCE + rollReference) {
+    if (roll < -ROLL_TOLERANCE + rollReference) { // pitch right
         if (stateInternalCounter2 > 0) {
             stateInternalCounter2 = 0;
         }
@@ -625,28 +676,27 @@ void getOnRampUpdate() {
             stateInternalCounter++;
         }
         else {
-        for (int i = 0; i < 150; i++) {
+        releaseSteppers();
+        delay(1500);
+        for (int i = 0; i < 40; i++) {
             incrementBackward();
         }
-        for (int i = 0; i < 20; i++) {
-            incrementRotateLeft();
-        }
-        delay(500);
-        getPR();
-        rollReference = roll;
-        for (int i = 0; i < 100; i++) {
-            incrementForward();
-        }
-        for (int i = 0; i < 40; i++) {
+        for (int i = 0; i < 60; i++) {
             incrementRotateRight();
         }
-        for (int i = 0; i < 100; i++) {
-            incrementForward();
+        for (int i = 0; i < 60; i++) {
+            incrementBackward();
         }
-            stateInternalCounter = 0;
+        for (int i = 0; i < 50; i++) {
+            incrementRotateLeft();
+        }
+        //delay(500);
+        //getPR();
+        //rollReference = roll;
+        stateInternalCounter = 0;
         }
     }
-    else if (roll > ROLL_TOLERANCE + rollReference) {
+    else if (roll > ROLL_TOLERANCE + rollReference) { // pitch left
         if (stateInternalCounter2 > 0) {
             stateInternalCounter2 = 0;
         }
@@ -654,26 +704,24 @@ void getOnRampUpdate() {
             stateInternalCounter++;
         }
         else {
-        releaseSteppers();   
-        for (int i = 0; i < 150; i++) {
+        releaseSteppers();
+        delay(1500);
+        for (int i = 0; i < 40; i++) {
             incrementBackward();
         }
-        for (int i = 0; i < 20; i++) {
-            incrementRotateRight();
-        }
-        delay(500);
-        getPR();
-        rollReference = roll;
-        for (int i = 0; i < 100; i++) {
-            incrementForward();
-        }
-        for (int i = 0; i < 40; i++) {
+        for (int i = 0; i < 60; i++) {
             incrementRotateLeft();
         }
-        for (int i = 0; i < 100; i++) {
-            incrementForward();
+        for (int i = 0; i < 60; i++) {
+            incrementBackward();
         }
-            stateInternalCounter = 0;
+        for (int i = 0; i < 50; i++) {
+            incrementRotateRight();
+        }
+        //delay(500);
+        //getPR();
+        //rollReference = roll;
+        stateInternalCounter = 0;
         }
     }
     else if (pitch > (pitchReference - PITCH_TOLERANCE)) {
@@ -683,27 +731,27 @@ void getOnRampUpdate() {
         if (stateInternalCounter2 > 0) {
             stateInternalCounter2 = 0;
         }
-        for (int incrCount = 0; incrCount < 100; incrCount++) {
+        for (int incrCount = 0; incrCount < 120; incrCount++) {
+            delay(10);
             incrementForward();
         }
     }
-    else {
-        if (stateInternalCounter2 < 100) {
+    else {                                                                  // properly aligned
+        if (stateInternalCounter2 < 30) {
             stateInternalCounter2++;
         }
         else {
-            releaseSteppers();
-            stateInternalCounter = 0;
-            stateInternalCounter2 = 0;
-            // Trigger state transition. Use a proper enum for this when time permits.
-            currentState = 5;
+              stateInternalCounter = 0;
+              stateInternalCounter2 = 0;
+              // Trigger state transition. Use a proper enum for this when time permits.
+              currentState = 5;
+            }
         }
-    }
 }
 
 //State 5
 void goUpRampUpdate() {
-    Serial.println("State 5");
+    //Serial.println("State 5");
     getPR();
     if (pitch < (pitchReference - PITCH_TOLERANCE)) {
         if (stateInternalCounter > 0) {
@@ -727,7 +775,7 @@ void goUpRampUpdate() {
 
 //State 6
 void onFlatRampUpdate() {
-    Serial.println("State 6");
+    //Serial.println("State 6");
     getPR();
     if (pitch < (pitchReference + PITCH_TOLERANCE)) {
         if (stateInternalCounter > 0) {
@@ -751,7 +799,8 @@ void onFlatRampUpdate() {
 
 //State 7
 void goDownRampUpdate() {
-    Serial.println("State 7");
+    //Serial.println("State 7");
+    
     getPR();
     if (pitch > (pitchReference + PITCH_TOLERANCE)) {
         if (stateInternalCounter > 0) {
@@ -768,8 +817,15 @@ void goDownRampUpdate() {
         else {
             stateInternalCounter = 0;
             // Trigger state transition. Use a proper enum for this when time permits.
-            for(int i = 0; i < 200; i++)
-                incrementForward();
+                /*
+           updateSonar(&USPairs[USPairDirFront]);
+           float frontDistance = USPairs[USPairDirFront].distance;
+           while (frontDistance < 15) {
+                
+           }
+           */
+           
+          
             getPR();
             pitchReference = pitch;
             prevState = currentState;
@@ -796,23 +852,56 @@ void findBaseUpdate() {
       for(int i = 0; i < 400; i++)
         incrementForward();
     }
-    
+    float usDist0 = USPairs[USPairDirLeft].us[0]->curDist;
+    float usDist1 = USPairs[USPairDirLeft].us[1]->curDist;
+
+
     //found the base
-    if (leftDistance < SEARCH_EXPECTED_MAX_DISTANCE && !isnan(leftDistance)) {
+    Serial.println(usDist0);
+    Serial.println(usDist1);
+    getPR();
+    if( pitch < 99 - END_PITCH_TOLERANCE) //99 (zero degree flat ref) - 10 degree tilt up = 89
+    {
+          stateInternalCounter = 0;
+          if(stateInternalCounter2 < 20)
+              stateInternalCounter2++;
+          else
+          {
+              stateInternalCounter2 = 0;
+              currentState = 10;
+              while(1);
+          }
+    }
+    else if (abs(usDist0 - usDist1) < 10 && leftDistance < SEARCH_EXPECTED_MAX_DISTANCE && !isnan(leftDistance)) {
+        stateInternalCounter2 = 0;
         if (stateInternalCounter < 30)
+        {
           stateInternalCounter++;
+          /*
+          Serial.print(USPairs[USPairDirLeft].us[0]->curDist);
+          Serial.print(USPairs[USPairDirLeft].us[1]->curDist);
+          Serial.print(USPairs[USPairDirLeft].us[0]->filteredDist);
+          Serial.print(USPairs[USPairDirLeft].us[1]->filteredDist);
+          Serial.println(leftDistance);
+          */
+        }
         else
         {
           stateInternalCounter = 0;
-          for(int i = 0; i < 150; i++)
+          for(int i = 0; i < 200; i++)
               incrementForward();
           // Trigger state transition. Use a proper enum for this when time permits.
           prevState = currentState;
           currentState = 9;
+
+          delay(1000);
+          getPR();
+          pitchReference = pitch;
         }
     }
     else {
           stateInternalCounter = 0;
+          stateInternalCounter2 = 0;
 //        if ((rightDistance < (DRIVE_TO_WALL_REFERENCE_DISTANCE - DISTANCE_TOLERANCE)) && (rightAngle < ANGLE_TOLERANCE)) {
 //            incrementRotateLeft();
 //        }
@@ -822,19 +911,20 @@ void findBaseUpdate() {
 //        else {
 //            incrementForward();
 //        }
+          
           incrementForward();
     }
 }
 
 //State 9
 void driveToBaseUpdate() {
-    Serial.println("State 9");
+    //Serial.println("State 9");
     updateSonar(&USPairs[USPairDirFront]);
-    
+
     float frontDistanceLeft = USPairs[USPairDirFront].us[0]->filteredDist;
     float frontDistanceRight = USPairs[USPairDirFront].us[1]->filteredDist;
     float frontDistance = USPairs[USPairDirFront].distance;
-    
+
     if(prevState == 8)
     {
         prevState = currentState;
@@ -843,22 +933,30 @@ void driveToBaseUpdate() {
     else
     {
       for(int i = 0; i < 30; i++)
-          incrementForward();
-      getPR();
-      if(frontDistance < 5 || pitch < pitchReference-END_PITCH_TOLERANCE) //99 (zero degree flat ref) - 10 degree tilt up = 89
       {
-            if(stateInternalCounter < 30)
-                stateInternalCounter++;
-            else
-            {
-                stateInternalCounter = 0;
-                currentState = 10;
-            }
+          incrementForward();
+          getPR();
+          if( pitch < 99 - END_PITCH_TOLERANCE) //99 (zero degree flat ref) - 10 degree tilt up = 89
+          {
+                if(stateInternalCounter < 30)
+                    stateInternalCounter++;
+                else
+                {
+                    stateInternalCounter = 0;
+                    currentState = 10;
+                    while(1);
+                }
+          }
+          else
+          {
+            stateInternalCounter = 0;
+          }
+          
       }
     }
 }
 
 //State 10
 void idleUpdate () {
-    delay(1000);
+    delay(100000);
 }
